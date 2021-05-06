@@ -59,18 +59,7 @@ async fn join(ctx: &Context, msg: &Message) -> CommandResult {
         .and_then(|x| x.channel_id);
 
     let connect_to = match channel_id {
-        None => {
-            msg.channel(&ctx.cache)
-                .await
-                .unwrap()
-                .guild()
-                .unwrap()
-                .send_message(&ctx.http, |f| {
-                    f.content("You must be in a voice channel to use this command!")
-                })
-                .await?;
-            return Ok(());
-        }
+        None => {}
         Some(vc) => vc,
     };
 

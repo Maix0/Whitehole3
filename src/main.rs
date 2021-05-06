@@ -29,6 +29,7 @@ use serenity::{framework::standard::macros::help, Client};
 //         .unwrap()
 // });
 
+/*
 pub static DATABASE: Lazy<sqlx::PgPool> = Lazy::new(|| {
     sqlx::Pool::connect_lazy(
         std::env::var("WH_DATABASE_URL")
@@ -38,6 +39,24 @@ pub static DATABASE: Lazy<sqlx::PgPool> = Lazy::new(|| {
     .map_err(|e| error!("DB init: {}", e))
     .unwrap()
 });
+*/
+#[derive(Debug, Clone)]
+enum Error {
+    Message(String),
+    Error(String),
+    Both { msg: String, err: String },
+}
+impl std::fmt::Display for Error {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        match self {
+            Error::Message(s) => Ok(()),
+            Error::Error(s) => write!(f, "{}", s),
+            Error::Both { err, .. } => write!(f, "{}", err),
+        }
+    }
+}
+
+impl std::error::Error for Error {}
 
 #[derive(Debug)]
 struct WhEventHandler {}
@@ -68,9 +87,63 @@ async fn main() {
 }
 
 async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
+    fn after_hook<'fut>(
+        ctx: &'fut Context,
+        message: &'fut serenity::model::channel::Message,
+        cmd_name: &'fut str,
+        error: Result<(), serenity::framework::standard::CommandError>,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'fut>> {
+        use serenity::FutureExt;
+        async {
+            if let Err(e) = error {
+                if let Some(err) = e.downcast_ref::<Error>() {
+                    match err {
+                        Error::Error(err) => error!("[{}]{}", cmd_name, err),
+                        Error::Both { msg, err } => {
+                            error!("[{}]{}", cmd_name, err);
+                            message
+                                .channel(&ctx)
+                                .await
+                                .unwrap()
+                                .guild()
+                                .unwrap()
+                                .send_message(&ctx.http, |f| f.content(msg))
+                                .await
+                                .map_err(|e| error!("Error when sending message: {}", e));
+                        }
+                        Error::Message(msg) => {
+                            message
+                                .channel(&ctx)
+                                .await
+                                .unwrap()
+                                .guild()
+                                .unwrap()
+                                .send_message(&ctx.http, |f| f.content(msg))
+                                .await
+                                .map_err(|e| error!("Error when sending message: {}", e));
+                        }
+                    }
+                } else {
+                    error!("[{}]{}", cmd_name, e);
+                    message
+                        .channel(&ctx)
+                        .await
+                        .unwrap()
+                        .guild()
+                        .unwrap()
+                        .send_message(&ctx.http, |f| f.content("Internal Error"))
+                        .await
+                        .map_err(|e| error!("Error when sending message: {}", e));
+                }
+            }
+        }
+        .boxed()
+    }
+
     let framework = serenity::framework::StandardFramework::new()
         .help(&HELP_COMMAND)
         .group(&music::MUSIC_GROUP)
+        .after(after_hook)
         .configure(|c| c.prefix("wh?"));
 
     let event_handler = WhEventHandler {};
@@ -152,7 +225,7 @@ fn logger_setup() -> Result<(), Box<dyn std::error::Error>> {
 
 async fn database_setup() -> Result<(), Box<dyn std::error::Error>> {
     #![allow(unused_variables)]
-    let connection = DATABASE.acquire().await?;
+    //let connection = DATABASE.acquire().await?;
     // let mem_connection = MEMORY_DB.acquire().await?;
     // TODO: ENABLE RECONSTRUCTION OF THE DBs
     Ok(())
