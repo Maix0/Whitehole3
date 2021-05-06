@@ -9,6 +9,7 @@ extern crate dotenv;
 extern crate fern;
 extern crate once_cell;
 extern crate songbird;
+extern crate url;
 
 use songbird::SerenityInit;
 use std::collections::HashSet;
@@ -83,8 +84,8 @@ async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
     .framework(framework)
     .event_handler(event_handler)
     .intents(GatewayIntents::all())
+    //.type_map(type_map)
     .register_songbird()
-    .type_map(type_map)
     .await;
     if let Err(e) = client.as_ref() {
         error!("Error when creating client: {}", e);

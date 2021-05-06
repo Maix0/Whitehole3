@@ -9,6 +9,7 @@ dotenv = "*"
 log = "0.4.14"
 once_cell = "*"
 songbird = "*"
+url = "*"
 
 [dependencies.fern]
 features = ["colored"]
