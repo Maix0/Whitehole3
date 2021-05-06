@@ -1,0 +1,31 @@
+[package]
+name = "wh_core"
+version = "0.1.0"
+authors = ["Maix0 <maix522@gmail.com>"]
+edition = "2018"
+
+
+
+[dependencies]
+async-trait = "0.1.50"
+dotenv = "0.15.0"
+log = "0.4.14"
+
+
+[dependencies.fern]
+features = ["colored"]
+version = "0.6.0"
+
+[dependencies.serenity]
+default-features = false
+features = ["voice", "gateway", "builder", "cache", "framework", "http", "model", "utils", "standard_framework", "rustls_backend"]
+version = "0.10.5"
+
+[dependencies.songbird]
+features = ["builtin-queue"]
+version = "0.1.6"
+
+[dependencies.tokio]
+default-features = false
+features = ["full"]
+version = "1.0"

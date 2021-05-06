@@ -1,0 +1,19 @@
+[package]
+name = "wh_main"
+version = "0.1.0"
+authors = ["Maix0 <maix522@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wh_core={path="../wh_core"}
+wh_database={path="../wh_database"}
+wh_music={path="../wh_music"}
+
+dotenv="0.15.0"
+tokio="1.5.0"
+log="0.4.14"
+serenity="0.10.5"
+fern="0.6.0"
+chrono="0.4.19"
