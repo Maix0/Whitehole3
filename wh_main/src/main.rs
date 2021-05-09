@@ -1,5 +1,6 @@
 use serenity::client::EventHandler;
 
+#[macro_use]
 extern crate wh_core;
 extern crate wh_database;
 extern crate wh_music;
@@ -24,10 +25,22 @@ impl EventHandler for WhEventHandler {
         _data_about_bot: serenity::model::gateway::Ready,
     ) {
         info!(
-            "Started `{}` on {} guilds",
+            "Started `{}` on {} guild{}",
             _data_about_bot.user.name,
-            _data_about_bot.guilds.len()
+            _data_about_bot.guilds.len(),
+            if _data_about_bot.guilds.len() == 1 {
+                ""
+            } else {
+                "s"
+            }
         );
+        for guild in _data_about_bot.guilds {
+            guild
+                .id()
+                .disconnect_member(&_ctx.http, &_ctx.cache.current_user_id().await)
+                .await
+                .expect("Error when disconnecting voice");
+        }
     }
 }
 
@@ -82,6 +95,7 @@ fn logger_setup() -> Result<(), Box<dyn std::error::Error>> {
         .level_for("tungstenite", log::LevelFilter::Warn)
         .level_for("sqlx", log::LevelFilter::Warn)
         .level_for("songbird", log::LevelFilter::Warn)
+        .level_for("ureq", log::LevelFilter::Warn)
         // Output to stdout, files, and other Dispatch configurations
         .chain(std::io::stdout())
         // Apply globally
@@ -111,39 +125,15 @@ async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
                         wh_core::Error::Error(err) => error!("[{}]{}", cmd_name, err),
                         wh_core::Error::Both { msg, err } => {
                             error!("[{}]{}", cmd_name, err);
-                            let _ = message
-                                .channel(&ctx)
-                                .await
-                                .unwrap()
-                                .guild()
-                                .unwrap()
-                                .send_message(&ctx.http, |f| f.content(msg))
-                                .await
-                                .map_err(|e| error!("Error when sending message: {}", e));
+                            reply_message!(ctx, message, msg);
                         }
                         wh_core::Error::Message(msg) => {
-                            let _ = message
-                                .channel(&ctx)
-                                .await
-                                .unwrap()
-                                .guild()
-                                .unwrap()
-                                .send_message(&ctx.http, |f| f.content(msg))
-                                .await
-                                .map_err(|e| error!("Error when sending message: {}", e));
+                            reply_message!(ctx, message, msg);
                         }
                     }
                 } else {
                     error!("[{}]{}", cmd_name, e);
-                    let _ = message
-                        .channel(&ctx)
-                        .await
-                        .unwrap()
-                        .guild()
-                        .unwrap()
-                        .send_message(&ctx.http, |f| f.content("Internal Error"))
-                        .await
-                        .map_err(|e| error!("Error when sending message: {}", e));
+                    reply_message!(ctx, message, "Internal Error");
                 }
             }
         }

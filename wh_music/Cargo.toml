@@ -1,16 +1,21 @@
 [package]
-name = "wh_music"
-version = "0.1.0"
 authors = ["Maix0 <maix522@gmail.com>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
+name = "wh_music"
+version = "0.1.0"
 [dependencies]
+log = "0.4.14"
+serenity = "0.10.5"
+serenity_utils = "*"
 url = "2.2.1"
-wh_core={path="../wh_core"}
 
+[dependencies.songbird]
+features = []
+version = "0.1.6"
 
-log="0.4.14"
-serenity="0.10.5"
-songbird="0.1.6"
+[dependencies.ureq]
+features = ["json"]
+version = "2.1.1"
+
+[dependencies.wh_core]
+path = "../wh_core"
