@@ -8,9 +8,16 @@ extern crate wh_core;
 extern crate serenity_utils;
 extern crate ureq;
 
-use serenity::framework::standard::{macros::*, CommandError, CommandResult};
-use serenity::model::channel::Message;
+use serenity::{
+    builder::CreateMessage,
+    model::{channel::Message, id::UserId},
+};
 use serenity::{client::Context, framework::standard::Args};
+use serenity::{
+    framework::standard::{macros::*, CommandError, CommandResult},
+    prelude::TypeMapKey,
+};
+use songbird::input::Input;
 
 pub async fn register_typemap(_: &mut serenity::prelude::TypeMap) {}
 
@@ -30,6 +37,20 @@ pub enum SongUrl {
     YoutubeVideo(url::Url),
     Spotify(url::Url),
     Query(String),
+}
+#[derive(Clone, Debug)]
+struct TrackMetadataKey;
+
+impl TypeMapKey for TrackMetadataKey {
+    type Value = TrackMetadata;
+}
+
+#[derive(Clone, Debug)]
+struct TrackMetadata {
+    url: Option<String>,
+    duration: Option<std::time::Duration>,
+    title: Option<String>,
+    added_by: UserId,
 }
 
 /*
@@ -104,7 +125,7 @@ impl SongUrl {
 
 #[group]
 #[only_in(guild)]
-#[commands(join, play)]
+#[commands(join, play, queue)]
 pub struct Music;
 
 #[command]
@@ -180,10 +201,41 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             let song =
                 songbird::input::restartable::Restartable::ytdl_search(q.as_str(), true).await;
             if let Ok(song) = song {
-                call_lock.enqueue_source(song.into());
+                let song: Input = song.into();
+                let metadata = TrackMetadata {
+                    url: song.metadata.source_url.clone(),
+                    title: song.metadata.title.clone(),
+                    duration: song.metadata.duration,
+                    added_by: msg.author.id,
+                };
+                let (track, handle) = songbird::tracks::create_player(song);
+                handle
+                    .typemap()
+                    .write()
+                    .await
+                    .insert::<TrackMetadataKey>(metadata);
+                call_lock.enqueue(track);
             } else {
                 if let Ok(y) = songbird::input::restartable::Restartable::ytdl(q, true).await {
-                    call_lock.enqueue_source(y.into());
+                    let song: Input = y.into();
+                    let metadata = TrackMetadata {
+                        url: song.metadata.source_url.clone(),
+                        title: song.metadata.title.clone(),
+                        duration: song.metadata.duration,
+                        added_by: msg.author.id,
+                    };
+                    if let Some(u) = metadata.url.as_ref() {
+                        reply_message!(ctx, msg, format!("Added {url} to the queue", url = u));
+                    } else {
+                        reply_message!(ctx, msg, "Added the song to the queue");
+                    }
+                    let (track, handle) = songbird::tracks::create_player(song);
+                    handle
+                        .typemap()
+                        .write()
+                        .await
+                        .insert::<TrackMetadataKey>(metadata);
+                    call_lock.enqueue(track);
                 } else {
                     message_err!("❌ No video was found for this song")
                 }
@@ -195,5 +247,50 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         }
     }
     std::mem::drop(call_lock);
+    Ok(())
+}
+
+#[command]
+#[only_in(guilds)]
+async fn queue(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+    let page_num = args.parse::<u16>().unwrap_or(0);
+    let handler = songbird::get(ctx).await.unwrap();
+    let call_mutex = handler.get(msg.guild_id.unwrap());
+    let guildname = msg.guild(ctx).await.unwrap().name;
+    let mut global_counter: u16 = 1;
+    match call_mutex {
+        Some(m) => {
+            let mut lock = m.lock().await;
+            let len = (lock.queue().len() as f32 / 10f32).ceil() as u16;
+            let page_num = page_num.clamp(0, len);
+            let mut pages = Vec::with_capacity(len as usize);
+            for song in lock.queue().current_queue().chunks(10) {
+                let mut message = CreateMessage::default();
+                message.embed(|e| {
+                    let builder = e.author(|f| f.name(format!("{}'s queue", guildname.as_str())))
+                    .image("https://cdn.discordapp.com/avatars/451475606744334336/d5612dcaced8ddf3d79619eb2b6699f9.png");
+                    builder
+                });
+                for song in song {
+                    let typemap = song.typemap().read().await;
+                    let metadata = typemap.get::<TrackMetadataKey>().unwrap();
+                    message.embed(|e| {
+                        e.field(
+                            metadata.title.as_ref().unwrap_or(
+                                metadata.url.as_ref().unwrap_or(&String::from("Unknown")),
+                            ),
+                            "todo!()",
+                            false,
+                        )
+                    });
+                }
+                pages.push(message)
+            }
+        }
+        None => {
+            message_err!("❌I am not connected to a voice channel.");
+        }
+    }
+
     Ok(())
 }
