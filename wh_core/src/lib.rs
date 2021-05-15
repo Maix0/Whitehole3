@@ -1,23 +1,7 @@
 extern crate fern;
 extern crate serenity;
-// extern crate songbird;
 
-pub struct EmptyEventHandler;
-
-impl serenity::client::EventHandler for EmptyEventHandler {}
-
-pub async fn register_typemap(_: &mut serenity::prelude::TypeMap) {}
-
-pub async fn event_handler() -> Option<EmptyEventHandler> {
-    None
-}
-
-pub fn register_builder(
-    client: serenity::client::ClientBuilder<'_>,
-) -> serenity::client::ClientBuilder<'_> {
-    client
-}
-
+pub mod event_handler;
 #[macro_use]
 pub mod macros;
 

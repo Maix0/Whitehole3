@@ -3,6 +3,7 @@ use serenity::{
     model::prelude::Ready,
 };
 
+#[derive(Default)]
 pub struct WhEventHandlerManager {
     inners: Vec<Box<dyn EventHandler>>,
 }
@@ -104,7 +105,7 @@ impl EventHandler for WhEventHandlerManager {
     ) {
         for handler in &self.inners {
             handler
-                .guild_ban_addition(_ctx.clone(), _guild_id.clone(), _banned_user.clone())
+                .guild_ban_addition(_ctx.clone(), _guild_id, _banned_user.clone())
                 .await;
         }
     }
@@ -117,7 +118,7 @@ impl EventHandler for WhEventHandlerManager {
     ) {
         for handler in &self.inners {
             handler
-                .guild_ban_removal(_ctx.clone(), _guild_id.clone(), _unbanned_user.clone())
+                .guild_ban_removal(_ctx.clone(), _guild_id, _unbanned_user.clone())
                 .await;
         }
     }
@@ -130,7 +131,7 @@ impl EventHandler for WhEventHandlerManager {
     ) {
         for handler in &self.inners {
             handler
-                .guild_create(_ctx.clone(), _guild.clone(), _is_new.clone())
+                .guild_create(_ctx.clone(), _guild.clone(), _is_new)
                 .await;
         }
     }
@@ -143,7 +144,7 @@ impl EventHandler for WhEventHandlerManager {
     ) {
         for handler in &self.inners {
             handler
-                .guild_delete(_ctx.clone(), _incomplete.clone(), _full.clone())
+                .guild_delete(_ctx.clone(), _incomplete, _full.clone())
                 .await;
         }
     }
@@ -159,7 +160,7 @@ impl EventHandler for WhEventHandlerManager {
     ) {
         for handler in &self.inners {
             handler
-                .guild_emojis_update(_ctx.clone(), _guild_id.clone(), _current_state.clone())
+                .guild_emojis_update(_ctx.clone(), _guild_id, _current_state.clone())
                 .await;
         }
     }
@@ -171,7 +172,7 @@ impl EventHandler for WhEventHandlerManager {
     ) {
         for handler in &self.inners {
             handler
-                .guild_integrations_update(_ctx.clone(), _guild_id.clone())
+                .guild_integrations_update(_ctx.clone(), _guild_id)
                 .await;
         }
     }
@@ -184,7 +185,7 @@ impl EventHandler for WhEventHandlerManager {
     ) {
         for handler in &self.inners {
             handler
-                .guild_member_addition(_ctx.clone(), _guild_id.clone(), _new_member.clone())
+                .guild_member_addition(_ctx.clone(), _guild_id, _new_member.clone())
                 .await;
         }
     }
@@ -200,7 +201,7 @@ impl EventHandler for WhEventHandlerManager {
             handler
                 .guild_member_removal(
                     _ctx.clone(),
-                    _guild_id.clone(),
+                    _guild_id,
                     _user.clone(),
                     _member_data_if_available.clone(),
                 )
@@ -241,7 +242,7 @@ impl EventHandler for WhEventHandlerManager {
     ) {
         for handler in &self.inners {
             handler
-                .guild_role_create(_ctx.clone(), _guild_id.clone(), _new.clone())
+                .guild_role_create(_ctx.clone(), _guild_id, _new.clone())
                 .await;
         }
     }
@@ -257,8 +258,8 @@ impl EventHandler for WhEventHandlerManager {
             handler
                 .guild_role_delete(
                     _ctx.clone(),
-                    _guild_id.clone(),
-                    _removed_role_id.clone(),
+                    _guild_id,
+                    _removed_role_id,
                     _removed_role_data_if_available.clone(),
                 )
                 .await;
@@ -276,7 +277,7 @@ impl EventHandler for WhEventHandlerManager {
             handler
                 .guild_role_update(
                     _ctx.clone(),
-                    _guild_id.clone(),
+                    _guild_id,
                     _old_data_if_available.clone(),
                     _new.clone(),
                 )
@@ -286,9 +287,7 @@ impl EventHandler for WhEventHandlerManager {
 
     async fn guild_unavailable(&self, _ctx: Context, _guild_id: serenity::model::id::GuildId) {
         for handler in &self.inners {
-            handler
-                .guild_unavailable(_ctx.clone(), _guild_id.clone())
-                .await;
+            handler.guild_unavailable(_ctx.clone(), _guild_id).await;
         }
     }
 
@@ -336,12 +335,7 @@ impl EventHandler for WhEventHandlerManager {
     ) {
         for handler in &self.inners {
             handler
-                .message_delete(
-                    _ctx.clone(),
-                    _channel_id.clone(),
-                    _deleted_message_id.clone(),
-                    _guild_id.clone(),
-                )
+                .message_delete(_ctx.clone(), _channel_id, _deleted_message_id, _guild_id)
                 .await;
         }
     }
@@ -357,9 +351,9 @@ impl EventHandler for WhEventHandlerManager {
             handler
                 .message_delete_bulk(
                     _ctx.clone(),
-                    _channel_id.clone(),
+                    _channel_id,
                     _multiple_deleted_messages_ids.clone(),
-                    _guild_id.clone(),
+                    _guild_id,
                 )
                 .await;
         }
@@ -412,11 +406,7 @@ impl EventHandler for WhEventHandlerManager {
     ) {
         for handler in &self.inners {
             handler
-                .reaction_remove_all(
-                    _ctx.clone(),
-                    _channel_id.clone(),
-                    _removed_from_message_id.clone(),
-                )
+                .reaction_remove_all(_ctx.clone(), _channel_id, _removed_from_message_id)
                 .await;
         }
     }
@@ -493,7 +483,7 @@ impl EventHandler for WhEventHandlerManager {
     ) {
         for handler in &self.inners {
             handler
-                .voice_state_update(_ctx.clone(), _g.clone(), _old.clone(), _new.clone())
+                .voice_state_update(_ctx.clone(), _g, _old.clone(), _new.clone())
                 .await;
         }
     }
@@ -506,11 +496,7 @@ impl EventHandler for WhEventHandlerManager {
     ) {
         for handler in &self.inners {
             handler
-                .webhook_update(
-                    _ctx.clone(),
-                    _guild_id.clone(),
-                    _belongs_to_channel_id.clone(),
-                )
+                .webhook_update(_ctx.clone(), _guild_id, _belongs_to_channel_id)
                 .await;
         }
     }

@@ -13,8 +13,6 @@ extern crate dotenv;
 extern crate fern;
 extern crate tokio;
 
-mod event_handler;
-
 struct WhEventHandler;
 
 #[serenity::async_trait]
@@ -45,21 +43,18 @@ impl EventHandler for WhEventHandler {
 }
 
 macro_rules! register_event_handler {
-    ($base_handler:expr, $($module:ident,)*) => {
-        $(match $module::event_handler().await {
-            Some(handler) => $base_handler.push(handler),
-            None => {},
-        };)*
+    ($base_handler:expr, $($module:ident),*) => {
+        $($module::register_event_handler($base_handler).await;)*
     };
 }
 macro_rules! register_typemap {
-    ($typemap:expr, $($module:ident,)*) => {
+    ($typemap:expr, $($module:ident),*) => {
         $($module::register_typemap($typemap).await;)*
     };
 }
 
 macro_rules! register_builder {
-    ($builder:ident, $($module:ident,)*) => {
+    ($builder:ident, $($module:ident),*) => {
         $(let $builder = $module::register_builder($builder);)*
     };
 }
@@ -132,7 +127,7 @@ async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
                         }
                     }
                 } else {
-                    error!("[{}]{}", cmd_name, e);
+                    error!("[{}] {}", cmd_name, e);
                     reply_message!(ctx, message, "Internal Error");
                 }
             }
@@ -146,13 +141,13 @@ async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
         .after(after_hook)
         .configure(|c| c.prefix("wh?"));
 
-    let mut event_handler = event_handler::WhEventHandlerManager::new();
+    let mut event_handler = wh_core::event_handler::WhEventHandlerManager::new();
     event_handler.push(WhEventHandler);
-    register_event_handler!(event_handler, wh_music, wh_core, wh_database,);
+    register_event_handler!(&mut event_handler, wh_music, wh_database);
 
     let mut type_map = serenity::prelude::TypeMap::new();
 
-    register_typemap!(&mut type_map, wh_music, wh_core, wh_database,);
+    register_typemap!(&mut type_map, wh_music, wh_database);
 
     let client = serenity::client::Client::builder(std::env::var("WH_DISCORD_BOT_TOKEN").expect(
         "Please use `WH_DISCORD_BOT_TOKEN` environement variable(or .env) with your bot's TOKEN",
@@ -161,7 +156,7 @@ async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
     .event_handler(event_handler)
     .intents(serenity::client::bridge::gateway::GatewayIntents::all())
     .type_map(type_map);
-    register_builder!(client, wh_core, wh_music, wh_database,);
+    register_builder!(client, wh_music, wh_database);
     let client = client.await;
     if let Err(e) = client.as_ref() {
         error!("Error when creating client: {}", e);

@@ -5,11 +5,14 @@ extern crate songbird;
 extern crate log;
 #[macro_use]
 extern crate wh_core;
+extern crate chrono;
 extern crate serenity_utils;
 extern crate ureq;
+#[macro_use]
+extern crate serde;
 
 use serenity::{
-    builder::CreateMessage,
+    builder::{CreateEmbed, CreateMessage},
     model::{channel::Message, id::UserId},
 };
 use serenity::{client::Context, framework::standard::Args};
@@ -17,13 +20,12 @@ use serenity::{
     framework::standard::{macros::*, CommandError, CommandResult},
     prelude::TypeMapKey,
 };
+use serenity_utils::prelude::MenuOptions;
 use songbird::input::Input;
 
 pub async fn register_typemap(_: &mut serenity::prelude::TypeMap) {}
 
-pub async fn event_handler() -> Option<wh_core::EmptyEventHandler> {
-    None
-}
+pub async fn register_event_handler(_: &mut wh_core::event_handler::WhEventHandlerManager) {}
 
 pub fn register_builder(
     client: serenity::client::ClientBuilder<'_>,
@@ -35,6 +37,7 @@ pub fn register_builder(
 #[derive(Clone, Debug)]
 pub enum SongUrl {
     YoutubeVideo(url::Url),
+    YoutubePlaylist(url::Url),
     Spotify(url::Url),
     Query(String),
 }
@@ -53,8 +56,28 @@ struct TrackMetadata {
     added_by: UserId,
 }
 
-/*
-fn get_yt_url<S: AsRef<str>>(query: S) -> CommandResult<Option<url::Url>> {
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct PlaylistItems {
+    #[serde(alias = "nextPageToken")]
+    next_page_token: Option<String>,
+    #[serde(alias = "pageInfo")]
+    page_info: PageInfo,
+    items: Vec<Items>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct PageInfo {
+    #[serde(alias = "totalResults")]
+    total_results: u32,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct Items {
+    #[serde(alias = "snippet.resourceId.videoId")]
+    video_id: String,
+}
+
+fn get_yt_playlist_urls<S: AsRef<str>>(query: S) -> CommandResult<Vec<url::Url>> {
     static mut API_KEY: Option<String> = None;
     if unsafe { API_KEY.is_none() } {
         unsafe {
@@ -66,30 +89,64 @@ fn get_yt_url<S: AsRef<str>>(query: S) -> CommandResult<Option<url::Url>> {
     }
 
     let query = query.as_ref();
+    let q_url = url::Url::parse(query)?;
+    let mut pairs = q_url.query_pairs();
+    let list_id = pairs.find(|(k, _)| k == "list");
+    if list_id.is_none() {
+        message_err!("You need to give a valid playlist link!");
+    }
+    let list_id = list_id.unwrap();
     let query_params = [
         ("part", "snippet"),
-        ("order", "relevance"),
-        ("q", query.as_ref()),
-        ("type", "video"),
+        ("maxResults", "50"),
+        ("playlist_id", list_id.1.as_ref()),
         ("key", unsafe { API_KEY.as_ref().unwrap().as_str() }),
     ];
     let url = url::Url::parse_with_params(
-        "https://youtube.googleapis.com/youtube/v3/search",
+        "https://youtube.googleapis.com/youtube/v3/playlistItems",
         &query_params,
     )
     .unwrap();
     let req = ureq::get(url.as_str()).call()?;
-    let json: ureq::SerdeValue = req.into_json()?;
-    let val = json.pointer("/items/0/id/videoId");
-    if let Some(ureq::SerdeValue::String(s)) = val {
-        return Ok(Some(
-            url::Url::parse(&format!("https://youtube.com/watch?v={}", s)).unwrap(),
-        ));
-    } else {
-        Ok(None)
+    let mut json: PlaylistItems = req.into_json()?;
+
+    let mut out = Vec::with_capacity(json.page_info.total_results as usize);
+
+    out.extend(
+        json.items
+            .iter()
+            .map(|v| format!("https://youtube.com/video?v={}", v.video_id))
+            .map(|u| url::Url::parse(u.as_str()).unwrap()),
+    );
+
+    while let Some(token) = json.next_page_token {
+        let query_params = [
+            ("part", "snippet"),
+            ("maxResults", "50"),
+            ("playlist_id", list_id.1.as_ref()),
+            ("pageToken", token.as_str()),
+            ("key", unsafe { API_KEY.as_ref().unwrap().as_str() }),
+        ];
+        let url = url::Url::parse_with_params(
+            "https://youtube.googleapis.com/youtube/v3/playlistItems",
+            &query_params,
+        )
+        .unwrap();
+        let req = ureq::get(url.as_str()).call()?;
+        json = req.into_json()?;
+
+        out.extend(
+            json.items
+                .iter()
+                .map(|v| format!("https://youtube.com/video?q={}", v.video_id))
+                .map(|u| url::Url::parse(u.as_str()).unwrap()),
+        );
+        debug!("out.len() = {}", out.len());
     }
+
+    Ok(out)
 }
-*/
+
 #[derive(Clone, Debug)]
 enum Query {
     Single(String),
@@ -97,26 +154,32 @@ enum Query {
 }
 
 impl SongUrl {
-    fn from_url(url: url::Url) -> Option<Self> {
+    fn from_url(url: url::Url) -> Self {
         match url.host() {
             Some(url::Host::Domain(u)) => match u {
                 "youtube.com" | "youtu.be" | "www.youtube.com" | "www.youtu.be" => match url.path()
                 {
-                    "/watch" => Some(Self::YoutubeVideo(url)),
-                    "/playlist" => None,
-                    _ => Some(Self::Query(url.to_string())),
+                    "/watch" => Self::YoutubeVideo(url),
+                    "/playlist" => Self::YoutubePlaylist(url),
+                    _ => Self::Query(url.to_string()),
                 },
-                "spotify.com" => Some(Self::Spotify(url)),
-                _ => Some(Self::Query(url.to_string())),
+                "spotify.com" => Self::Spotify(url),
+                _ => Self::Query(url.to_string()),
             },
-            _ => Some(Self::Query(url.to_string())),
+            _ => Self::Query(url.to_string()),
         }
     }
     async fn into_query(self) -> Result<Query, CommandError> {
         Ok(match self {
             Self::YoutubeVideo(s) => Query::Single(s.to_string()),
+            Self::YoutubePlaylist(p) => Query::Multiple(
+                get_yt_playlist_urls(p)?
+                    .iter()
+                    .map(|u| u.to_string())
+                    .collect::<Vec<_>>(),
+            ),
             Self::Query(s) => Query::Single(s),
-            Self::Spotify(s) => {
+            Self::Spotify(_) => {
                 todo!()
             }
         })
@@ -162,12 +225,9 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let url = args.single::<url::Url>();
     let song_url = match url {
         Ok(url) => SongUrl::from_url(url),
-        Err(_) => args.remains().map(|s| SongUrl::Query(s.to_string())),
+        Err(_) => SongUrl::Query(args.remains().unwrap_or("").to_string()),
     };
-    if song_url.is_none() {
-        message_err!("Please input valid url or query")
-    }
-    let song_url = song_url.unwrap();
+
     let song_query = song_url.into_query().await?;
 
     let vc = guild.voice_states.get(&ctx.cache.current_user_id().await);
@@ -215,8 +275,52 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                     .await
                     .insert::<TrackMetadataKey>(metadata);
                 call_lock.enqueue(track);
+            } else if let Ok(y) = songbird::input::restartable::Restartable::ytdl(q, true).await {
+                let song: Input = y.into();
+                let metadata = TrackMetadata {
+                    url: song.metadata.source_url.clone(),
+                    title: song.metadata.title.clone(),
+                    duration: song.metadata.duration,
+                    added_by: msg.author.id,
+                };
+                if let Some(u) = metadata.url.as_ref() {
+                    reply_message!(ctx, msg, format!("Added {url} to the queue", url = u));
+                } else {
+                    reply_message!(ctx, msg, "Added the song to the queue");
+                }
+                let (track, handle) = songbird::tracks::create_player(song);
+                handle
+                    .typemap()
+                    .write()
+                    .await
+                    .insert::<TrackMetadataKey>(metadata);
+                call_lock.enqueue(track);
             } else {
-                if let Ok(y) = songbird::input::restartable::Restartable::ytdl(q, true).await {
+                message_err!("❌ No video was found for this song")
+            }
+        }
+        Query::Multiple(list) => {
+            for q in list {
+                debug!("{}", q);
+                let song =
+                    songbird::input::restartable::Restartable::ytdl_search(q.as_str(), true).await;
+                if let Ok(song) = song {
+                    let song: Input = song.into();
+                    let metadata = TrackMetadata {
+                        url: song.metadata.source_url.clone(),
+                        title: song.metadata.title.clone(),
+                        duration: song.metadata.duration,
+                        added_by: msg.author.id,
+                    };
+                    let (track, handle) = songbird::tracks::create_player(song);
+                    handle
+                        .typemap()
+                        .write()
+                        .await
+                        .insert::<TrackMetadataKey>(metadata);
+                    call_lock.enqueue(track);
+                } else if let Ok(y) = songbird::input::restartable::Restartable::ytdl(q, true).await
+                {
                     let song: Input = y.into();
                     let metadata = TrackMetadata {
                         url: song.metadata.source_url.clone(),
@@ -237,13 +341,9 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                         .insert::<TrackMetadataKey>(metadata);
                     call_lock.enqueue(track);
                 } else {
-                    message_err!("❌ No video was found for this song")
+                    reply_message!(ctx, msg, "❌ No video was found for this song");
                 }
             }
-        }
-        Query::Multiple(list) => {
-            //TODO: Handle playlist
-            todo!()
         }
     }
     std::mem::drop(call_lock);
@@ -252,39 +352,98 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 
 #[command]
 #[only_in(guilds)]
-async fn queue(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
+async fn queue(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let page_num = args.parse::<u16>().unwrap_or(0);
     let handler = songbird::get(ctx).await.unwrap();
     let call_mutex = handler.get(msg.guild_id.unwrap());
     let guildname = msg.guild(ctx).await.unwrap().name;
-    let mut global_counter: u16 = 1;
     match call_mutex {
         Some(m) => {
-            let mut lock = m.lock().await;
+            let lock = m.lock().await;
             let len = (lock.queue().len() as f32 / 10f32).ceil() as u16;
             let page_num = page_num.clamp(0, len);
             let mut pages = Vec::with_capacity(len as usize);
-            for song in lock.queue().current_queue().chunks(10) {
+            for (page, song) in lock.queue().current_queue().chunks(10).enumerate() {
                 let mut message = CreateMessage::default();
-                message.embed(|e| {
-                    let builder = e.author(|f| f.name(format!("{}'s queue", guildname.as_str())))
-                    .image("https://cdn.discordapp.com/avatars/451475606744334336/d5612dcaced8ddf3d79619eb2b6699f9.png");
-                    builder
-                });
+                let mut embed = CreateEmbed::default();
+                embed.author(|f| f.name(format!("{}'s queue", guildname.as_str())));
+                let mut content = String::new();
                 for song in song {
                     let typemap = song.typemap().read().await;
                     let metadata = typemap.get::<TrackMetadataKey>().unwrap();
-                    message.embed(|e| {
-                        e.field(
-                            metadata.title.as_ref().unwrap_or(
-                                metadata.url.as_ref().unwrap_or(&String::from("Unknown")),
-                            ),
-                            "todo!()",
-                            false,
-                        )
-                    });
+                    use std::fmt::Write;
+                    write!(
+                        content,
+                        "[{title}]({url})\nAdded by: `{username} [{duration}]`\n",
+                        title = metadata.title.clone().unwrap_or_else(|| metadata
+                            .url
+                            .clone()
+                            .unwrap_or_else(|| String::from("Unknown"))),
+                        url = metadata.url.as_deref().unwrap_or("https://youtube.com"),
+                        username = {
+                            let u = msg
+                                .guild(ctx)
+                                .await
+                                .unwrap()
+                                .member(ctx, metadata.added_by)
+                                .await?;
+                            if let Some(nick) = u.nick {
+                                format!(
+                                    "{nick} ({username}#{disc})",
+                                    nick = nick,
+                                    username = u.user.name,
+                                    disc = u.user.discriminator
+                                )
+                            } else {
+                                format!(
+                                    "{username}#{disc}",
+                                    username = u.user.name,
+                                    disc = u.user.discriminator
+                                )
+                            }
+                        },
+                        duration = metadata
+                            .duration
+                            .map(|d| {
+                                chrono::Duration::from_std(d)
+                                    .map(|d| {
+                                        let secs = d.num_seconds() % 60;
+                                        let min = d.num_minutes() % 60;
+                                        let hour = d.num_hours();
+
+                                        if hour == 0 {
+                                            format!("{m:02}:{s:02}", s = secs, m = min)
+                                        } else {
+                                            format!(
+                                                "{h}:{m:02}:{s:02}",
+                                                s = secs,
+                                                m = min,
+                                                h = hour
+                                            )
+                                        }
+                                    })
+                                    .unwrap()
+                            })
+                            .as_deref()
+                            .unwrap_or("Unknown")
+                    )?;
                 }
-                pages.push(message)
+                embed.description(content);
+                embed.footer(|f| f.text(format!("Page {}/{}", page + 1, len)));
+                message.set_embed(embed);
+                pages.push(message);
+
+                let menu = serenity_utils::menu::Menu::new(
+                    ctx,
+                    msg,
+                    &pages,
+                    MenuOptions {
+                        page: page_num as usize,
+                        ..Default::default()
+                    },
+                );
+
+                let _opt_message = menu.run().await?;
             }
         }
         None => {

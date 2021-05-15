@@ -10,12 +10,11 @@ edition = "2018"
 [dependencies]
 serenity="0.10.5"
 chrono = "0.4.19"
-dotenv = "0.15.0"
 log="0.4.14"
 wh_core={path="../wh_core"}
 
 
 [dependencies.sqlx]
 default-features = false
-features = ["sqlite", "postgres", "runtime-tokio-rustls", "chrono"]
+features = ["postgres", "runtime-tokio-rustls", "chrono"]
 version = "0.5.2"

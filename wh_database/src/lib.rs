@@ -1,4 +1,5 @@
 use serenity::prelude::TypeMapKey;
+use wh_core::event_handler::WhEventHandlerManager;
 
 extern crate serenity;
 extern crate sqlx;
@@ -10,9 +11,7 @@ impl TypeMapKey for DatabaseKey {
     type Value = sqlx::PgPool;
 }
 
-pub async fn event_handler() -> Option<wh_core::EmptyEventHandler> {
-    None
-}
+pub async fn register_event_handler(_: &mut WhEventHandlerManager) {}
 
 pub async fn register_typemap(tm: &mut serenity::prelude::TypeMap) {
     let db = sqlx::PgPool::connect(

@@ -8,7 +8,6 @@ edition = "2018"
 
 [dependencies]
 async-trait = "0.1.50"
-dotenv = "0.15.0"
 log = "0.4.14"
 
 
@@ -21,11 +20,4 @@ default-features = false
 features = ["voice", "gateway", "builder", "cache", "framework", "http", "model", "utils", "standard_framework", "rustls_backend"]
 version = "0.10.5"
 
-[dependencies.songbird]
-features = ["builtin-queue"]
-version = "0.1.6"
 
-[dependencies.tokio]
-default-features = false
-features = ["full"]
-version = "1.0"
