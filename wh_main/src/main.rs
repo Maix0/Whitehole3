@@ -4,6 +4,7 @@ use serenity::client::EventHandler;
 extern crate wh_core;
 extern crate wh_database;
 extern crate wh_music;
+extern crate wh_points;
 
 extern crate serenity;
 #[macro_use]
@@ -42,20 +43,10 @@ impl EventHandler for WhEventHandler {
     }
 }
 
-macro_rules! register_event_handler {
-    ($base_handler:expr, $($module:ident),*) => {
-        $($module::register_event_handler($base_handler).await;)*
-    };
-}
-macro_rules! register_typemap {
-    ($typemap:expr, $($module:ident),*) => {
-        $($module::register_typemap($typemap).await;)*
-    };
-}
+macro_rules! modules {
+    ($list:ident, $($module:ident),*) => {
+        let $list = vec![$(&$module::module::MODULE_DECLARATION),*];
 
-macro_rules! register_builder {
-    ($builder:ident, $($module:ident),*) => {
-        $(let $builder = $module::register_builder($builder);)*
     };
 }
 
@@ -97,7 +88,7 @@ fn logger_setup() -> Result<(), Box<dyn std::error::Error>> {
         .apply()?)
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread", worker_threads = 16)]
 async fn main() {
     dotenv::dotenv().ok();
     logger_setup().expect("Error when setting up logger");
@@ -135,28 +126,38 @@ async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
         .boxed()
     }
 
-    let framework = serenity::framework::StandardFramework::new()
+    modules!(modules, wh_database, wh_music, wh_points);
+
+    let mut framework = serenity::framework::StandardFramework::new()
         .help(&wh_core::HELP_COMMAND)
-        .group(&wh_music::MUSIC_GROUP)
         .after(after_hook)
         .configure(|c| c.prefix("wh?"));
 
     let mut event_handler = wh_core::event_handler::WhEventHandlerManager::new();
     event_handler.push(WhEventHandler);
-    register_event_handler!(&mut event_handler, wh_music, wh_database);
-
     let mut type_map = serenity::prelude::TypeMap::new();
+    let mut intent = serenity::client::bridge::gateway::GatewayIntents::empty();
+    for module in &modules {
+        info!("[1/2] Loading module \"{}\"", module.module_name);
+        for &cmd in module.command_groups {
+            framework = framework.group(cmd);
+        }
+        (module.register_event_handler)(&mut event_handler).await;
+        intent = (module.register_intent)(intent);
+        (module.register_typemap)(&mut type_map).await;
+    }
 
-    register_typemap!(&mut type_map, wh_music, wh_database);
-
-    let client = serenity::client::Client::builder(std::env::var("WH_DISCORD_BOT_TOKEN").expect(
+    let mut client = serenity::client::Client::builder(std::env::var("WH_DISCORD_BOT_TOKEN").expect(
         "Please use `WH_DISCORD_BOT_TOKEN` environement variable(or .env) with your bot's TOKEN",
     ))
     .framework(framework)
     .event_handler(event_handler)
-    .intents(serenity::client::bridge::gateway::GatewayIntents::all())
+    .intents(intent)
     .type_map(type_map);
-    register_builder!(client, wh_music, wh_database);
+    for module in &modules {
+        info!("[2/2] Loading module \"{}\"", module.module_name);
+        client = (module.register_builder)(client);
+    }
     let client = client.await;
     if let Err(e) = client.as_ref() {
         error!("Error when creating client: {}", e);

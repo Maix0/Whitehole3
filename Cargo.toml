@@ -3,5 +3,6 @@ members=[
     "wh_core",
     "wh_database",
     "wh_music",
-    "wh_main"
+    "wh_main",
+    "wh_points",
 ]

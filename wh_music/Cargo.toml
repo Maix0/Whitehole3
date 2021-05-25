@@ -10,14 +10,16 @@ serde = {version="1.0.126", features=["derive"]}
 serenity = "0.10.5"
 serenity_utils = "0.6.1"
 url = "2.2.1"
+reqwest = "0.11.3"
+serde_json= "1.0.64"
 
 [dependencies.songbird]
 features = ["builtin-queue"]
 version = "0.1.6"
 
-[dependencies.ureq]
-features = ["json"]
-version = "2.1.1"
-
 [dependencies.wh_core]
 path = "../wh_core"
+
+[dependencies.tokio]
+version="1.0"
+features=["full"]
