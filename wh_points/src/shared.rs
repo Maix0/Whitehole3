@@ -26,3 +26,8 @@ pub const SYNC_EVERY: std::time::Duration =
 pub const DELAY_BETWEEN_MESSAGE: std::time::Duration =
     std::time::Duration::from_secs(if cfg!(debug_assertions) { 30 } else { 2 * 60 });
 pub const POINT_RANGE: (u64, u64) = (5, 10);
+
+#[derive(Clone, Debug, sqlx::Type)]
+pub struct PointRow {
+    uid: wh_database::shared::Id,
+}

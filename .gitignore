@@ -1,4 +1,7 @@
 /target
+/postgres_data
 Cargo.lock
 .env
-start_pg.sh
+start_pg.bat
+/.vscode
+whitehole3.sql

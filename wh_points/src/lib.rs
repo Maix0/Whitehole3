@@ -1,4 +1,4 @@
-#[macro_use]
+//#[macro_use]
 extern crate log;
 extern crate serenity;
 extern crate sqlx;
