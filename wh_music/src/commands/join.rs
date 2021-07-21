@@ -4,6 +4,9 @@ use serenity::model::channel::Message;
 
 #[command]
 #[only_in(guilds)]
+#[usage("")]
+#[num_args(0_0)]
+/// Make the bot join your voice channel
 pub async fn join(ctx: &Context, msg: &Message) -> CommandResult {
     let guild = msg.guild(&ctx.cache).await.unwrap();
     let guild_id = guild.id;

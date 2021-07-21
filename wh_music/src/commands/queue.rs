@@ -4,10 +4,14 @@ use serenity::{
     model::channel::Message,
 };
 use serenity::{client::Context, framework::standard::Args};
-use serenity_utils::prelude::MenuOptions;
 
 #[command]
 #[only_in(guilds)]
+#[num_args(0_1)]
+#[usage("[page?]")]
+#[example("")]
+/// Get the bot's queue
+/// If a page number is appended to the command, it will show the page asked otherwise it will show the first page
 pub async fn queue(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let page_num = args.parse::<u16>().unwrap_or(0);
     let handler = songbird::get(ctx).await.unwrap();
@@ -17,15 +21,15 @@ pub async fn queue(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
         Some(m) => {
             let lock = m.lock().await;
             let queue = lock.queue().current_queue();
+            std::mem::drop(lock);
             let len = (queue.len() as f32 / 10f32).ceil() as u16;
             let page_num = page_num.clamp(0, len);
-            let mut pages = Vec::with_capacity(len as usize);
-            for (page, song) in queue.chunks(10).enumerate() {
+            if let Some((page, song)) = queue.chunks(10).enumerate().nth(page_num as usize) {
                 let mut message = CreateMessage::default();
                 let mut embed = CreateEmbed::default();
                 embed.author(|f| f.name(format!("{}'s queue", guildname.as_str())));
                 let mut content = String::new();
-                debug!("page: {}, song: {}", page, song.len());
+
                 for song in song {
                     let typemap = song.typemap().read().await;
                     let metadata = typemap.get::<crate::shared::TrackMetadataKey>().unwrap();
@@ -89,34 +93,15 @@ pub async fn queue(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 embed.description(content);
                 embed.footer(|f| f.text(format!("Page {}/{}", page + 1, len)));
                 message.set_embed(embed);
-                pages.push(message);
+                msg.channel_id
+                    .send_message(&ctx.http, |c| {
+                        *c = message;
+                        c
+                    })
+                    .await?;
+            } else {
+                reply_message!(ctx, msg, "The queue is empty");
             }
-
-            let menu = serenity_utils::menu::Menu::new(
-                ctx,
-                msg,
-                &pages,
-                MenuOptions {
-                    page: page_num as usize,
-                    controls: vec![
-                        serenity_utils::menu::Control::new(
-                            serenity::model::channel::ReactionType::Unicode("◀️".into()),
-                            std::sync::Arc::new(|m, r| {
-                                Box::pin(serenity_utils::menu::prev_page(m, r))
-                            }),
-                        ),
-                        serenity_utils::menu::Control::new(
-                            serenity::model::channel::ReactionType::Unicode("▶️".into()),
-                            std::sync::Arc::new(|m, r| {
-                                Box::pin(serenity_utils::menu::next_page(m, r))
-                            }),
-                        ),
-                    ],
-                    ..Default::default()
-                },
-            );
-
-            let _opt_message = menu.run().await?;
         }
         None => {
             reply_message!(ctx, msg, "❌I am not connected to a voice channel.");

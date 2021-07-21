@@ -6,9 +6,9 @@ extern crate log;
 extern crate wh_core;
 extern crate chrono;
 extern crate reqwest;
-extern crate serenity_utils;
 #[macro_use]
 extern crate serde;
+extern crate once_cell;
 extern crate serde_json;
 extern crate tokio;
 

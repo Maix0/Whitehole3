@@ -40,20 +40,15 @@ impl SongUrl {
     }
 }
 
-async fn get_yt_playlist_urls<S: AsRef<str>>(_query: S) -> CommandResult<Vec<url::Url>> {
-    message_err!("❌Playlist are currently not supported");
-    static mut API_KEY: Option<String> = None;
-    if unsafe { API_KEY.is_none() } {
-        unsafe {
-            API_KEY = Some(
-                std::env::var("WH_GOOGLE_API_KEY")
-                    .expect("You need to set the `WH_GOOGLE_API_KEY` environement variable"),
-            );
-        }
-    }
+async fn get_yt_playlist_urls<S: AsRef<str>>(query: S) -> CommandResult<Vec<url::Url>> {
+    //message_err!("❌Playlist are currently not supported");
+    static API_KEY: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(|| {
+        std::env::var("WH_GOOGLE_API_KEY").expect("You need to have `WH_GOOGLE_API_KEY` set")
+    });
+
     let client = reqwest::Client::new();
 
-    let query = _query.as_ref();
+    let query = query.as_ref();
     let q_url = url::Url::parse(query)?;
     let mut pairs = q_url.query_pairs();
     let list_id = pairs.find(|(k, _)| k == "list");
@@ -65,7 +60,7 @@ async fn get_yt_playlist_urls<S: AsRef<str>>(_query: S) -> CommandResult<Vec<url
         ("part", "snippet"),
         ("maxResults", "50"),
         ("playlist_id", list_id.1.as_ref()),
-        ("key", unsafe { API_KEY.as_ref().unwrap().as_str() }),
+        ("key", API_KEY.as_str()),
     ];
     let url = url::Url::parse_with_params(
         "https://youtube.googleapis.com/youtube/v3/playlistItems",
@@ -73,7 +68,7 @@ async fn get_yt_playlist_urls<S: AsRef<str>>(_query: S) -> CommandResult<Vec<url
     )
     .unwrap();
     let req = client.get(url.as_str()).send().await?;
-    let mut json: PlaylistItems = todo!();
+    let mut json: PlaylistItems = req.json().await?;
 
     let mut out = Vec::with_capacity(json.page_info.total_results as usize);
 
@@ -95,7 +90,7 @@ async fn get_yt_playlist_urls<S: AsRef<str>>(_query: S) -> CommandResult<Vec<url
             ("maxResults", "50"),
             ("playlist_id", list_id.1.as_ref()),
             ("pageToken", token.as_str()),
-            ("key", unsafe { API_KEY.as_ref().unwrap().as_str() }),
+            ("key", API_KEY.as_str()),
         ];
         let url = url::Url::parse_with_params(
             "https://youtube.googleapis.com/youtube/v3/playlistItems",
@@ -103,14 +98,14 @@ async fn get_yt_playlist_urls<S: AsRef<str>>(_query: S) -> CommandResult<Vec<url
         )
         .unwrap();
         let req = client.get(url.as_str()).send().await?;
-        json = todo!();
+        json = req.json().await?;
 
         out.extend(
             json.items
                 .iter()
                 .map(|v| {
                     format!(
-                        "https://youtube.com/video?q={}",
+                        "https://youtube.com/video?v={}",
                         v.snippet.resource_id.video_id
                     )
                 })
@@ -161,6 +156,11 @@ struct ResourceId {
 
 #[command]
 #[only_in(guilds)]
+#[usage("[query or url]")]
+#[example("https://www.youtube.com/watch?v=dQw4w9WgXcQ")]
+#[num_args(1_1)]
+/// Make the bot play the music
+/// the query can be a youtube video, a youtube playlist, a simple query or a spotify song/playlist url
 async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let guild = msg.guild(&ctx.cache).await.unwrap();
     args.trimmed().unquoted();
@@ -226,8 +226,8 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
             }
         }
         SongType::MultipleUrl(list) => {
-            message_err!("❌ Queueing Multiple songs at once is disable for now!");
-            let mut track_list = Vec::with_capacity(list.len());
+            //message_err!("❌ Queueing Multiple songs at once is disable for now!");
+            let mut count = 0;
             for q in list {
                 if let Ok(y) = songbird::input::restartable::Restartable::ytdl(q, true).await {
                     let song: Input = y.into();
@@ -237,26 +237,22 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                         duration: song.metadata.duration,
                         added_by: msg.author.id,
                     };
-                    if let Some(u) = metadata.url.as_ref() {
-                        reply_message!(ctx, msg, format!("Added {url} to the queue", url = u));
-                    } else {
-                        reply_message!(ctx, msg, "Added the song to the queue");
-                    }
+                    count += 1;
                     let (track, handle) = songbird::tracks::create_player(song);
                     handle
                         .typemap()
                         .write()
                         .await
                         .insert::<crate::shared::TrackMetadataKey>(metadata);
-                    track_list.push(track);
+
+                    let mut call_lock = call.lock().await;
+                    call_lock.enqueue(track);
+                    std::mem::drop(call_lock)
                 } else {
                     reply_message!(ctx, msg, "❌ No video was found for this song");
                 }
             }
-            let mut call_lock = call.lock().await;
-            for track in track_list {
-                call_lock.enqueue(track);
-            }
+            reply_message!(ctx, msg, format!("Added {} song(s) to the queue", count));
         }
         _ => warn!("Todo SongType::*Query"),
     }
