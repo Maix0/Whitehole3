@@ -2,14 +2,7 @@ extern crate serenity;
 extern crate sqlx;
 extern crate wh_core;
 
-pub mod shared {
-    use serenity::prelude::TypeMapKey;
-    pub struct DatabaseKey;
-
-    impl TypeMapKey for DatabaseKey {
-        type Value = sqlx::PgPool;
-    }
-}
+pub mod shared;
 
 pub mod module {
     use wh_core::event_handler::WhEventHandlerManager;
