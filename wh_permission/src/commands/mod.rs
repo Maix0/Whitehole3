@@ -1,10 +1,17 @@
 add_commands!(Permission, (permission), (permission_manage));
 
-use serenity::framework::standard::{macros::check, Args, CommandOptions, Reason};
+use serenity::framework::standard::{Args, Check, CommandOptions, Reason};
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
-#[check]
-#[name("permission_manage")]
+
+const PERMISSION_MANAGE_CHECK: Check = Check {
+    function: check_permission_manage_or_admin,
+    name: "permission.manage",
+    check_in_help: true,
+    display_in_help: true,
+};
+
+#[hook]
 async fn check_permission_manage_or_admin(
     ctx: &Context,
     msg: &Message,

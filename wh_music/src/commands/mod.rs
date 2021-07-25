@@ -1,25 +1,26 @@
-add_commands!(
-    Music,
-    (clear, join, pause, play, queue, resume, skip),
-    (none)
-);
+add_commands!(Music, (clear, join, pause, play, queue, resume, skip), ());
 
 add_commands!(MusicPriv, (move_cmd, remove, leave), (music_manage));
 
-use serenity::framework::standard::macros::check;
-use serenity::framework::standard::Reason;
+use serenity::framework::standard::{Check, Reason};
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
 
-#[check]
-#[name("music_manage")]
+const MUSIC_MANAGE_CHECK: Check = Check {
+    function: |a, b, _, _| music_privileged(a, b),
+    name: "music.manage",
+    display_in_help: true,
+    check_in_help: true,
+};
+
+#[hook]
 async fn music_privileged(ctx: &Context, msg: &Message) -> Result<(), Reason> {
-    let permisison = "music.manage";
+    let permissison = "music.manage";
     let has = wh_permission::shared::has_permission(
         ctx,
         msg.author.id.0,
         msg.guild_id.unwrap().0,
-        permission,
+        permissison,
     )
     .await?;
     if has {
@@ -27,13 +28,7 @@ async fn music_privileged(ctx: &Context, msg: &Message) -> Result<(), Reason> {
     } else {
         return Err(Reason::User(format!(
             "You don't have the permission `{}` required to use this command",
-            permission
+            permissison
         )));
     }
-}
-
-#[check]
-#[name("none")]
-async fn empty_check(ctx: &Context, msg: &Message) -> Result<(), Reason> {
-    Ok(())
 }

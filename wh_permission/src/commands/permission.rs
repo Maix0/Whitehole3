@@ -26,7 +26,7 @@ pub async fn grant(ctx: &Context, msg: &Message, mut args: Args) -> CommandResul
     let user_mention = user_mention.unwrap();
     args.advance();
     let permission = args.single::<String>();
-    if let Err(e) = permission {
+    if permission.is_err() {
         message_err!("You need to provide a permission to give!");
     }
     let permission = permission.unwrap();
@@ -78,7 +78,7 @@ pub async fn remove(ctx: &Context, msg: &Message, mut args: Args) -> CommandResu
     let user_mention = user_mention.unwrap();
     args.advance();
     let permission = args.single::<String>();
-    if let Err(e) = permission {
+    if permission.is_err() {
         message_err!("You need to provide a permission to remove!");
     }
     let permission = permission.unwrap();
@@ -123,7 +123,7 @@ pub async fn remove(ctx: &Context, msg: &Message, mut args: Args) -> CommandResu
 #[example("@-|Maix|#1010")]
 #[min_args(0)]
 #[max_args(1)]
-pub async fn view(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+pub async fn view(ctx: &Context, msg: &Message) -> CommandResult {
     let usr_mention = msg.mentions.first().unwrap_or(&msg.author);
     crate::shared::create_permission_if_not_exists(ctx, usr_mention.id.0, msg.guild_id.unwrap().0)
         .await?;
