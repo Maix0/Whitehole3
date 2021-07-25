@@ -48,7 +48,7 @@ macro_rules! reply_message {
 
 #[macro_export]
 macro_rules! add_commands {
-    ($group_name:ident, ($($cmd:ident),* ,($($check:ident),*))) => {
+    ($group_name:ident, ($($cmd:ident),*) ,($($check:ident),*)) => {
         use serenity::framework::standard::macros::*;
 
         $(
