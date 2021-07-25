@@ -97,48 +97,93 @@ async fn main() {
 }
 
 async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
-    fn after_hook<'fut>(
-        ctx: &'fut serenity::client::Context,
-        message: &'fut serenity::model::channel::Message,
-        cmd_name: &'fut str,
+    #[serenity::framework::standard::macros::hook]
+    async fn after_hook(
+        ctx: &serenity::client::Context,
+        message: &serenity::model::channel::Message,
+        cmd_name: &str,
         error: Result<(), serenity::framework::standard::CommandError>,
-    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + Send + 'fut>> {
-        use serenity::FutureExt;
-        async move {
-            if let Err(e) = error {
-                if let Some(err) = e.downcast_ref::<wh_core::Error>() {
-                    match err {
-                        wh_core::Error::Error(err) => error!("[{}]{}", cmd_name, err),
-                        wh_core::Error::Both { msg, err } => {
-                            error!("[{}]{}", cmd_name, err);
-                            reply_message!(ctx, message, msg);
-                        }
-                        wh_core::Error::Message(msg) => {
-                            reply_message!(ctx, message, msg);
-                        }
+    ) {
+        if let Err(e) = error {
+            if let Some(err) = e.downcast_ref::<wh_core::Error>() {
+                match err {
+                    wh_core::Error::Error(err) => error!("[{}]{}", cmd_name, err),
+                    wh_core::Error::Both { msg, err } => {
+                        error!("[{}]{}", cmd_name, err);
+                        reply_message!(ctx, message, msg);
                     }
-                } else {
-                    error!("[{}] {}", cmd_name, e);
-                    reply_message!(ctx, message, "Internal Error");
+                    wh_core::Error::Message(msg) => {
+                        reply_message!(ctx, message, msg);
+                    }
                 }
+            } else {
+                error!("[{}] {}", cmd_name, e);
+                reply_message!(ctx, message, "Internal Error");
             }
         }
-        .boxed()
     }
 
-    modules!(modules, wh_database, wh_music, wh_points);
+    #[serenity::framework::standard::macros::hook]
+    async fn error_hook(
+        ctx: &serenity::client::Context,
+        msg: &serenity::model::channel::Message,
+        error: serenity::framework::standard::DispatchError,
+    ) {
+        use serenity::framework::standard::DispatchError::*;
+        use serenity::framework::standard::Reason::*;
+        match error {
+            CheckFailed(check, reason) => match reason {
+                User(m) => {
+                    reply_message!(ctx, msg, m);
+                }
+                Log(m) => error!("Check {} failed: {}", check, m),
+                UserAndLog { user, log } => {
+                    reply_message!(ctx, msg, user);
+                    error!("Check {} failed: {}", check, log);
+                }
+                _ => error!("Check {} failed", check),
+            },
+            NotEnoughArguments { min, given } => {
+                reply_message!(
+                    ctx,
+                    msg,
+                    format!(
+                        "The command takes minimum {} arguments but {} were given",
+                        min, given
+                    )
+                );
+            }
+            TooManyArguments { max, given } => {
+                reply_message!(
+                    ctx,
+                    msg,
+                    format!(
+                        "The command takes maximum {} arguments but {} were given",
+                        max, given
+                    )
+                );
+            }
+            _ => {}
+        }
+    }
+
+    modules!(modules, wh_database, wh_music, wh_points, wh_permission);
 
     let mut framework = serenity::framework::StandardFramework::new()
         .help(&wh_core::HELP_COMMAND)
         .after(after_hook)
-        .configure(|c| c.prefix("wh?"));
+        .on_dispatch_error(error_hook)
+        .configure(|c| {
+            c.prefix("wh?");
+            c.allow_dm(false)
+        });
 
     let mut event_handler = wh_core::event_handler::WhEventHandlerManager::new();
     event_handler.push(WhEventHandler);
     let mut type_map = serenity::prelude::TypeMap::new();
     let mut intent = serenity::client::bridge::gateway::GatewayIntents::empty();
     for module in &modules {
-        info!("[1/2] Loading module \"{}\"", module.module_name);
+        info!("Loading module \"\x1b[1;32m{}\x1b[0m\"", module.module_name);
         for &cmd in module.command_groups {
             framework = framework.group(cmd);
         }
@@ -155,7 +200,6 @@ async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
     .intents(intent)
     .type_map(type_map);
     for module in &modules {
-        info!("[2/2] Loading module \"{}\"", module.module_name);
         client = (module.register_builder)(client);
     }
     let client = client.await;

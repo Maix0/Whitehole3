@@ -7,10 +7,11 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wh_core={path="../wh_core"}
-wh_database={path="../wh_database"}
-wh_music={path="../wh_music"}
-wh_points={path="../wh_points"}
+wh_core =       { path = "../wh_core" }
+wh_database =   { path = "../wh_database" }
+wh_music =      { path = "../wh_music" }
+wh_points =     { path = "../wh_points" }
+wh_permission = { path = "../wh_permission" }
 
 dotenv="0.15.0"
 tokio="1.5.0"
