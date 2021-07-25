@@ -95,3 +95,39 @@ pub struct UserPermission {
     pub userid: wh_database::shared::Id,
     pub ids: Vec<String>,
 }
+
+use serenity::framework::standard::macros::hook;
+use serenity::model::channel::Message;
+
+#[hook]
+pub async fn check_permission(
+    ctx: &Context,
+    msg: &Message,
+    permission: &str,
+) -> Result<(), Reason> {
+    let res =
+        crate::shared::has_permission(ctx, msg.author.id.0, msg.guild_id.unwrap().0, permission)
+            .await?;
+    if !res {
+        return Err(Reason::User(format!(
+            "❌You don't have the permission `{}` to use this command",
+            permission
+        )));
+    }
+    Ok(())
+}
+
+#[macro_export]
+macro_rules! check_permission {
+    ($struct_name:ident, $permission:literal) => {
+        const $struct_name: serenity::framework::standard::Check =
+            serenity::framework::standard::Check {
+                function: |ctx, msg, _, _| {
+                    wh_permission::shared::check_permission(ctx, msg, $permission)
+                },
+                name: $permission,
+                display_in_help: true,
+                check_in_help: true,
+            };
+    };
+}

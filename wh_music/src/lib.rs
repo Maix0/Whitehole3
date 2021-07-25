@@ -4,6 +4,8 @@ extern crate songbird;
 extern crate log;
 #[macro_use]
 extern crate wh_core;
+#[macro_use]
+extern crate wh_permission;
 extern crate chrono;
 extern crate reqwest;
 #[macro_use]
