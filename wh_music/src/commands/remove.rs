@@ -4,7 +4,7 @@ use serenity::model::channel::Message;
 
 #[command]
 #[only_in(guilds)]
-#[num_args(1_1)]
+#[num_args(1)]
 /// Remove the music at the given index
 pub async fn remove(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let sb = songbird::get(ctx).await.unwrap();

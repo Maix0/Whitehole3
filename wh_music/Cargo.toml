@@ -22,6 +22,9 @@ features=["builtin-queue"]
 [dependencies.wh_core]
 path = "../wh_core"
 
+[dependencies.wh_permission]
+path = "../wh_permission"
+
 [dependencies.tokio]
 version="1.0"
 features=["full"]

@@ -158,7 +158,7 @@ struct ResourceId {
 #[only_in(guilds)]
 #[usage("[query or url]")]
 #[example("https://www.youtube.com/watch?v=dQw4w9WgXcQ")]
-#[num_args(1_1)]
+#[num_args(1)]
 /// Make the bot play the music
 /// the query can be a youtube video, a youtube playlist, a simple query or a spotify song/playlist url
 async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {

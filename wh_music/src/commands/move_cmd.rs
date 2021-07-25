@@ -4,7 +4,7 @@ use serenity::model::channel::Message;
 
 #[command("move")]
 #[only_in(guilds)]
-#[num_args(2_2)]
+#[num_args(2)]
 #[usage("[src] [dest]")]
 #[example("10 1")]
 /// This command moves the item at the source index to the destination index, shifting every item after it by one

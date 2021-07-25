@@ -5,7 +5,7 @@ use serenity::model::channel::Message;
 #[command]
 #[only_in(guilds)]
 #[usage("")]
-#[num_args(0_0)]
+#[num_args(0)]
 /// Make the bot leave his voice channel and clearing the queue
 async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
     let guild = msg.guild(&ctx.cache).await.unwrap();

@@ -5,7 +5,7 @@ use serenity::model::channel::Message;
 #[command]
 #[only_in(guilds)]
 #[usage("")]
-#[num_args(0_0)]
+#[num_args(0)]
 /// Pause the bot music
 pub async fn pause(ctx: &Context, msg: &Message) -> CommandResult {
     let sb = songbird::get(ctx).await.unwrap();

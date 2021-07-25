@@ -1,6 +1,9 @@
 pub static MODULE_DECLARATION: wh_core::ModuleDeclaration = wh_core::ModuleDeclaration {
     module_name: "Music",
-    command_groups: &[&crate::commands::MUSIC_GROUP],
+    command_groups: &[
+        &crate::commands::MUSIC_GROUP,
+        &crate::commands::MUSICPRIV_GROUP,
+    ],
     register_typemap: |t| Box::pin(register_typemap(t)),
     register_event_handler: |e| Box::pin(register_event_handler(e)),
     register_builder,

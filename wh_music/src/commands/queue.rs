@@ -7,7 +7,8 @@ use serenity::{client::Context, framework::standard::Args};
 
 #[command]
 #[only_in(guilds)]
-#[num_args(0_1)]
+#[min_args(0)]
+#[max_args(1)]
 #[usage("[page?]")]
 #[example("")]
 /// Get the bot's queue

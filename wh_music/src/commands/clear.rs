@@ -5,7 +5,7 @@ use serenity::model::channel::Message;
 #[command]
 #[only_in(guilds)]
 #[usage("")]
-#[num_args(0_0)]
+#[num_args(0)]
 /// Clear the guild's queue
 pub async fn clear(ctx: &Context, msg: &Message) -> CommandResult {
     let sb = songbird::get(ctx).await.unwrap();
