@@ -5,4 +5,5 @@ members=[
     "wh_music",
     "wh_main",
     "wh_points",
+    "wh_permission"
 ]

@@ -20,8 +20,8 @@ pub mod module {
 
     async fn register_typemap(tm: &mut serenity::prelude::TypeMap) {
         let db = sqlx::PgPool::connect(
-            std::env::var("WH_DATABASE_URL")
-                .expect("Use `WH_DATABASE_URL` environment variable to set the database url")
+            std::env::var("DATABASE_URL")
+                .expect("Use `DATABASE_URL` environment variable to set the database url")
                 .as_str(),
         )
         .await

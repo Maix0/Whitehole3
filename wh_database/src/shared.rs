@@ -8,6 +8,12 @@ impl TypeMapKey for DatabaseKey {
 #[repr(transparent)]
 pub struct Id(pub u64);
 
+impl From<i64> for Id {
+    fn from(id: i64) -> Self {
+        Self(unsafe { std::mem::transmute(id) })
+    }
+}
+
 impl<'q, DB: ::sqlx::Database> ::sqlx::encode::Encode<'q, DB> for Id
 where
     i64: ::sqlx::encode::Encode<'q, DB>,

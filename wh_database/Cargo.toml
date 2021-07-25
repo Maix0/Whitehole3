@@ -18,6 +18,3 @@ wh_core={path="../wh_core"}
 default-features = false
 features = ["postgres", "runtime-tokio-rustls", "chrono", "macros"]
 version = "0.5.2"
-
-[build-dependencies]
-dotenv = "0.15.0"
