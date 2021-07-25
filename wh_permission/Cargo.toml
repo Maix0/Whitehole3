@@ -1,0 +1,18 @@
+[package]
+name = "wh_permission"
+version = "0.1.0"
+authors = ["Maix0 <maix522@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+wh_core = { path = "../wh_core" }
+wh_database = { path = "../wh_database" }
+serenity = "0.10.8"
+log = "0.4.14"
+
+[dependencies.sqlx]
+default-features = false
+features = ["postgres", "runtime-tokio-rustls", "chrono", "macros"]
+version = "0.5.2"
