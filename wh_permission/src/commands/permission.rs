@@ -30,6 +30,9 @@ pub async fn grant(ctx: &Context, msg: &Message, mut args: Args) -> CommandResul
         message_err!("You need to provide a permission to give!");
     }
     let permission = permission.unwrap();
+    if !crate::shared::static_get_permission().contains(&permission.as_str()) {
+        message_err!("This permission does't exist!");
+    }
     if permission == "permission.manage" {
         let discord_permission = msg
             .guild(&ctx.cache)
@@ -82,6 +85,11 @@ pub async fn remove(ctx: &Context, msg: &Message, mut args: Args) -> CommandResu
         message_err!("You need to provide a permission to remove!");
     }
     let permission = permission.unwrap();
+
+    if !crate::shared::static_get_permission().contains(&permission.as_str()) {
+        message_err!("This permission does't exist!");
+    }
+
     if permission == "permission.manage" {
         let discord_permission = msg
             .guild(&ctx.cache)

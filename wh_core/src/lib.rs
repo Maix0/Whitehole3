@@ -21,6 +21,7 @@ pub struct ModuleDeclaration {
     pub register_intent: fn(
         serenity::client::bridge::gateway::GatewayIntents,
     ) -> serenity::client::bridge::gateway::GatewayIntents,
+    pub register_init: fn(),
 }
 
 use serenity::{

@@ -8,6 +8,7 @@ pub static MODULE_DECLARATION: wh_core::ModuleDeclaration = wh_core::ModuleDecla
     register_event_handler: |e| Box::pin(register_event_handler(e)),
     register_builder,
     register_intent,
+    register_init,
 };
 
 async fn register_typemap(_: &mut serenity::prelude::TypeMap) {}
@@ -26,4 +27,8 @@ fn register_intent(
 ) -> serenity::client::bridge::gateway::GatewayIntents {
     use serenity::client::bridge::gateway::GatewayIntents as I;
     intent | I::GUILD_VOICE_STATES | I::GUILD_MESSAGES | I::GUILDS | I::GUILD_MESSAGE_REACTIONS
+}
+
+fn register_init() {
+    wh_permission::shared::add_permission(&["music.manage"]);
 }

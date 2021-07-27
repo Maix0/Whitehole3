@@ -14,6 +14,7 @@ pub mod module {
         register_event_handler: |e| Box::pin(register_event_handler(e)),
         register_builder,
         register_intent,
+        register_init,
     };
 
     async fn register_event_handler(_: &mut WhEventHandlerManager) {}
@@ -41,4 +42,6 @@ pub mod module {
     ) -> serenity::client::bridge::gateway::GatewayIntents {
         i
     }
+
+    fn register_init() {}
 }

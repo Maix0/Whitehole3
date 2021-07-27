@@ -14,6 +14,7 @@ enum SongType {
 
 impl SongUrl {
     fn from_url(url: url::Url) -> Self {
+        dbg!(&url);
         match url.scheme() {
             "spotify" => {
                 return Self::Spotify(url);
@@ -39,7 +40,9 @@ impl SongUrl {
             Self::YoutubeVideo(s) => SongType::SingleUrl(s),
             Self::YoutubePlaylist(p) => SongType::MultipleUrl(get_yt_playlist_urls(p).await?),
             Self::Query(s) => SongType::SingleQuery(s),
-            Self::Spotify(q) => SongType::MultipleQuery(handle_spotify(q).await?),
+            Self::Spotify(q) => {
+                todo!()
+            }
         })
     }
 }
@@ -118,10 +121,7 @@ async fn get_yt_playlist_urls<S: AsRef<str>>(query: S) -> CommandResult<Vec<url:
     }
     Ok(out)
 }
-#[hook]
-async fn handle_spotify(
-    uri: url::Url,
-) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+fn handle_spotify(uri: url::Url) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
     static CLIENT: once_cell::sync::Lazy<aspotify::Client> = once_cell::sync::Lazy::new(|| {
         aspotify::Client::new(
             aspotify::ClientCredentials::from_env_vars("WH_SPOTIFY_ID", "WH_SPOTIFY_SECRET")
@@ -130,96 +130,12 @@ async fn handle_spotify(
     });
     let mut out = Vec::new();
     if uri.scheme() == "spotify" {
-        let path = uri.path();
-        let mut i = path.split(':');
-        let (id_type, id) = (i.next(), i.next());
-        if id_type.is_none() || id.is_none() {
-            message_err!("You provided an invalid spotify uri")
-        }
-        let id_type = id_type.unwrap();
-        let id = id.unwrap();
-        match id_type {
-            "track" => {
-                let track = CLIENT.tracks().get_track(id, None).await?;
-                out.push(track.data.name);
-            }
-            "playlist" => {
-                let playlists = CLIENT.playlists();
-                let data = playlists.get_playlist(id, None).await?.data;
-                let page = data.tracks;
-
-                let length = page.total;
-                let mut totvec = Vec::with_capacity(length);
-                let mut offset = 0;
-
-                while offset < length {
-                    let new_page = playlists
-                        .get_playlists_items(id, 50, offset, None)
-                        .await?
-                        .data;
-                    let len = new_page.items.len();
-                    totvec.extend(new_page.items);
-                    offset += len;
-                }
-                for track in totvec {
-                    if let Some(item) = &track.item {
-                        let name = match item {
-                            aspotify::model::PlaylistItemType::Track(t) => format!(
-                                "{} - {}",
-                                t.name,
-                                t.artists.first().map(|a| a.name.as_str()).unwrap_or("")
-                            ),
-                            aspotify::model::PlaylistItemType::Episode(e) => {
-                                format!("{} - {}", e.name, e.show.name)
-                            }
-                        };
-                        out.push(name);
-                    }
-                }
-            }
-
-            "album" => {
-                let albums = CLIENT.albums();
-                let data = albums.get_album(id, None).await?.data;
-                let page = data.tracks;
-
-                let length = page.total;
-                let mut totvec = Vec::with_capacity(length);
-                let mut offset = 0;
-
-                while offset < length {
-                    let new_page = albums.get_album_tracks(id, 50, offset, None).await?.data;
-                    let len = new_page.items.len();
-                    totvec.extend(new_page.items);
-                    offset += len;
-                }
-                for track in totvec {
-                    let name = format!(
-                        "{} - {}",
-                        track.name,
-                        track.artists.first().map(|a| a.name.as_str()).unwrap_or("")
-                    );
-                    out.push(name);
-                }
-            }
-            _ => message_err!("unknown spotify uri type"),
-        }
-    } else {
-        let path = uri.path_segments();
-        if path.is_none() {
-            message_err!("Error when parsing url");
-        }
-        let mut path = path.unwrap();
-        let (type_id, id) = (path.next(), path.next());
-        if type_id.is_none() || id.is_none() {
-            message_err!("Please input valid spotify url")
-        }
-        let type_id = type_id.unwrap();
-        let id = id.unwrap();
-
-        let uri = url::Url::parse(&format!("spotify:{}:{}", type_id, id)).unwrap();
-
-        out = handle_spotify(uri).await?;
+    let path = uri.path();
+    let mut i = path.split(':');
+    let (id_type, id) = (i.next(), i.next());
+    if id_type.is_none() || id.is_none() {
+        message_err!("You provided an invalid spotify uri")
+    }
     }
 
     Ok(out)
@@ -300,15 +216,8 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 
         let manager = songbird::get(ctx).await.unwrap();
 
-        let (handler, res) = manager.join(guild_id, connect_to).await;
+        let (_handler, res) = manager.join(guild_id, connect_to).await;
         res?;
-        let meh = crate::shared::MusicEventHandler {
-            call: handler.clone(),
-        };
-        handler.lock().await.add_global_event(
-            songbird::events::Event::Track(songbird::events::TrackEvent::End),
-            meh,
-        );
     }
 
     let manager = songbird::get(ctx).await.unwrap();
@@ -317,23 +226,23 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 
     match song_query {
         SongType::SingleUrl(q) => {
-            play_yt_url(call, q, ctx, msg, true).await?;
+            play_yt_url(call, q, ctx, msg).await?;
         }
         SongType::MultipleUrl(list) => {
             let mut count = 0;
             for q in list {
-                play_yt_url(call.clone(), q, ctx, msg, false).await?;
+                play_yt_url(call.clone(), q, ctx, msg).await?;
                 count += 1;
             }
             reply_message!(ctx, msg, format!("Added {} song(s) to the queue", count));
         }
         SongType::SingleQuery(q) => {
-            play_yt_url(call, format!("ytsearch1:{}", q), ctx, msg, true).await?;
+            play_yt_url(call, format!("ytsearch1:{}", q), ctx, msg).await?;
         }
         SongType::MultipleQuery(list) => {
             let mut count = 0;
             for q in list {
-                play_yt_url(call.clone(), format!("ytsearch1:{}", q), ctx, msg, false).await?;
+                play_yt_url(call.clone(), format!("ytsearch1:{}", q), ctx, msg).await?;
                 count += 1;
             }
             reply_message!(ctx, msg, format!("Added {} song(s) to the queue", count));
@@ -341,13 +250,11 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     }
     Ok(())
 }
-
 async fn play_yt_url<U>(
     call: std::sync::Arc<tokio::sync::Mutex<songbird::Call>>,
     url: U,
     ctx: &Context,
     msg: &Message,
-    show_addition: bool,
 ) -> CommandResult
 where
     U: AsRef<str> + Send + Sync + Clone + 'static,
@@ -364,12 +271,10 @@ where
                 duration: song.metadata.duration,
                 added_by: msg.author.id,
             };
-            if show_addition {
-                if let Some(u) = metadata.url.as_ref() {
-                    reply_message!(ctx, msg, format!("Added {url} to the queue", url = u));
-                } else {
-                    reply_message!(ctx, msg, "Added the song to the queue");
-                }
+            if let Some(u) = metadata.url.as_ref() {
+                reply_message!(ctx, msg, format!("Added {url} to the queue", url = u));
+            } else {
+                reply_message!(ctx, msg, "Added the song to the queue");
             }
             let (track, handle) = songbird::tracks::create_player(song);
             handle

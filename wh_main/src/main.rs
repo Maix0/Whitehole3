@@ -183,13 +183,14 @@ async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
     let mut type_map = serenity::prelude::TypeMap::new();
     let mut intent = serenity::client::bridge::gateway::GatewayIntents::empty();
     for module in &modules {
-        info!("Loading module \"\x1b[1;32m{}\x1b[0m\"", module.module_name);
+        info!("Loading module \x1b[1;32m{}\x1b[0m", module.module_name);
         for &cmd in module.command_groups {
             framework = framework.group(cmd);
         }
         (module.register_event_handler)(&mut event_handler).await;
         intent = (module.register_intent)(intent);
         (module.register_typemap)(&mut type_map).await;
+        (module.register_init)();
     }
 
     let mut client = serenity::client::Client::builder(std::env::var("WH_DISCORD_BOT_TOKEN").expect(

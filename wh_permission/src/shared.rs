@@ -4,12 +4,30 @@ use serenity::{
 };
 use wh_database::shared::{DatabaseKey, Id};
 
+static mut PERMISSIONS: Vec<&'static str> = Vec::new();
+
+pub fn add_permission(perms: &[&'static str]) {
+    for p in perms {
+        static_set_permission(p);
+    }
+}
+pub fn static_set_permission(perm: &'static str) {
+    unsafe { PERMISSIONS.push(perm) };
+}
+
+pub fn static_get_permission() -> &'static Vec<&'static str> {
+    unsafe { &PERMISSIONS }
+}
+
 pub async fn has_permission(
     ctx: &Context,
     userid: u64,
     guildid: u64,
     permission: &str,
 ) -> Result<bool, Reason> {
+    if !static_get_permission().contains(&permission) {
+        error!("You need to register the permission `{}` with the wh_permission::add_permission function", permission);
+    }
     let lock = ctx.data.read().await;
     let database = lock.get::<DatabaseKey>().unwrap();
     let r = create_permission_if_not_exists(ctx, userid, guildid).await;

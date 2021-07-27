@@ -10,6 +10,7 @@ extern crate chrono;
 extern crate reqwest;
 #[macro_use]
 extern crate serde;
+extern crate aspotify;
 extern crate once_cell;
 extern crate serde_json;
 extern crate tokio;

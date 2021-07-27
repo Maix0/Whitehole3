@@ -25,8 +25,14 @@ pub async fn join(ctx: &Context, msg: &Message) -> CommandResult {
 
     let manager = songbird::get(ctx).await.unwrap();
 
-    let (_handler, res) = manager.join(guild_id, connect_to).await;
-
+    let (handler, res) = manager.join(guild_id, connect_to).await;
     res?;
+    let meh = crate::shared::MusicEventHandler {
+        call: handler.clone(),
+    };
+    handler.lock().await.add_global_event(
+        songbird::events::Event::Track(songbird::events::TrackEvent::End),
+        meh,
+    );
     Ok(())
 }
