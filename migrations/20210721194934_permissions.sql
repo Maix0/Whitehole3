@@ -1,5 +1,5 @@
 -- Add migration script here
-CREATE TABLE "permission" (
+CREATE TABLE "user_permission" (
   "uid" serial8,
   "guildid" int8 NOT NULL,
   "userid" int8 NOT NULL,

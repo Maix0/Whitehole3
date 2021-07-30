@@ -140,23 +140,33 @@ async fn handle_spotify(
         let id = id.unwrap();
         match id_type {
             "track" => {
-                let track = CLIENT.tracks().get_track(id, None).await?;
-                out.push(track.data.name);
+                let track = CLIENT.tracks().get_track(id, None).await;
+                if let Err(aspotify::model::Error::Endpoint(e)) = &track {
+                    if e.status == 400 {
+                        message_err!("Invalid spotify url")
+                    }
+                }
+
+                out.push(track?.data.name);
             }
             "playlist" => {
                 let playlists = CLIENT.playlists();
-                let data = playlists.get_playlist(id, None).await?.data;
-                let page = data.tracks;
+                let data = playlists.get_playlist(id, None).await;
+                if let Err(aspotify::model::Error::Endpoint(e)) = &data {
+                    dbg!(&e);
+                    if e.status == 404 {
+                        message_err!("Invalid spotify url");
+                    }
+                }
+                let page = data?.data.tracks;
 
                 let length = page.total;
                 let mut totvec = Vec::with_capacity(length);
                 let mut offset = 0;
 
                 while offset < length {
-                    let new_page = playlists
-                        .get_playlists_items(id, 50, offset, None)
-                        .await?
-                        .data;
+                    let new_page_res = playlists.get_playlists_items(id, 50, offset, None).await;
+                    let new_page = new_page_res?.data;
                     let len = new_page.items.len();
                     totvec.extend(new_page.items);
                     offset += len;
@@ -180,8 +190,14 @@ async fn handle_spotify(
 
             "album" => {
                 let albums = CLIENT.albums();
-                let data = albums.get_album(id, None).await?.data;
-                let page = data.tracks;
+                let data = albums.get_album(id, None).await;
+                if let Err(aspotify::model::Error::Endpoint(e)) = &data {
+                    if e.status == 400 {
+                        message_err!("Invalid spotify url")
+                    }
+                }
+
+                let page = data?.data.tracks;
 
                 let length = page.total;
                 let mut totvec = Vec::with_capacity(length);

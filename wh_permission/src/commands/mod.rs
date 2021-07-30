@@ -19,9 +19,14 @@ async fn check_permission_manage_or_admin(
     _: &CommandOptions,
 ) -> Result<(), Reason> {
     let permission = "permission.manage";
-    let res =
-        crate::shared::has_permission(ctx, msg.author.id.0, msg.guild_id.unwrap().0, permission)
-            .await?;
+    let res = crate::shared::has_permission(
+        ctx,
+        msg,
+        msg.author.id.0,
+        msg.guild_id.unwrap().0,
+        permission,
+    )
+    .await?;
     let discord_permission = msg
         .guild(&ctx.cache)
         .await

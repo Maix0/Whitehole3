@@ -5,6 +5,9 @@ extern crate wh_database;
 extern crate sqlx;
 #[macro_use]
 extern crate log;
+extern crate lru;
+extern crate once_cell;
+extern crate parking_lot;
 
 mod commands;
 pub mod module;
