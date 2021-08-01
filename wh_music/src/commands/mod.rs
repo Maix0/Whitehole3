@@ -1,4 +1,8 @@
-add_commands!(Music, (clear, join, pause, play, queue, resume, skip), ());
+add_commands!(
+    Music,
+    (clear, join, pause, play, queue, resume, skip, playlist),
+    ()
+);
 
 add_commands!(MusicPriv, (move_cmd, remove, leave), (music_manage));
 

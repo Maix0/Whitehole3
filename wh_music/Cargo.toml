@@ -23,9 +23,16 @@ features=["builtin-queue"]
 [dependencies.wh_core]
 path = "../wh_core"
 
+[dependencies.wh_database]
+path = "../wh_database"
+
 [dependencies.wh_permission]
 path = "../wh_permission"
 
 [dependencies.tokio]
 version="1.0"
 features=["full"]
+[dependencies.sqlx]
+default-features = false
+features = ["postgres", "runtime-tokio-rustls", "chrono", "macros"]
+version = "0.5.2"

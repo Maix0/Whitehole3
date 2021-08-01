@@ -1,3 +1,4 @@
+use serenity::framework::standard::{macros::hook, CommandError, CommandResult};
 use serenity::model::id::UserId;
 use serenity::prelude::TypeMapKey;
 
@@ -37,4 +38,415 @@ impl songbird::events::EventHandler for MusicEventHandler {
         }
         None
     }
+}
+
+#[derive(Clone, Debug)]
+pub enum SongType {
+    SingleQuery(String),
+    MultipleQuery(Vec<String>),
+    //
+    SingleUrl(url::Url),
+    MultipleUrl(Vec<url::Url>),
+}
+
+impl SongUrl {
+    pub fn from_url(url: url::Url) -> Self {
+        match url.scheme() {
+            "spotify" => {
+                return Self::Spotify(url);
+            }
+            _ => {}
+        };
+        match url.host() {
+            Some(url::Host::Domain(u)) => match u {
+                "youtube.com" | "youtu.be" | "www.youtube.com" | "www.youtu.be" => match url.path()
+                {
+                    "/watch" => Self::YoutubeVideo(url),
+                    "/playlist" => Self::YoutubePlaylist(url),
+                    _ => Self::Query(url.to_string()),
+                },
+                "spotify.com" | "open.spotify.com" => Self::Spotify(url),
+                _ => Self::Query(url.to_string()),
+            },
+            _ => Self::Query(url.to_string()),
+        }
+    }
+    pub async fn into_query(self) -> Result<SongType, CommandError> {
+        Ok(match self {
+            Self::YoutubeVideo(s) => SongType::SingleUrl(s),
+            Self::YoutubePlaylist(p) => SongType::MultipleUrl(get_yt_playlist_urls(p).await?),
+            Self::Query(s) => SongType::SingleQuery(s),
+            Self::Spotify(q) => SongType::MultipleQuery(handle_spotify(q).await?),
+        })
+    }
+}
+static API_KEY: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(|| {
+    std::env::var("WH_GOOGLE_API_KEY").expect("You need to have `WH_GOOGLE_API_KEY` set")
+});
+
+async fn get_yt_playlist_urls<S: AsRef<str>>(query: S) -> CommandResult<Vec<url::Url>> {
+    //message_err!("❌Playlist are currently not supported");
+
+    let client = reqwest::Client::new();
+
+    let query = query.as_ref();
+    let q_url = url::Url::parse(query)?;
+    let mut pairs = q_url.query_pairs();
+    let list_id = pairs.find(|(k, _)| k == "list");
+    if list_id.is_none() {
+        message_err!("You need to give a valid playlist link!");
+    }
+    let list_id = list_id.unwrap();
+    let query_params = [
+        ("part", "snippet"),
+        ("maxResults", "50"),
+        ("playlist_id", list_id.1.as_ref()),
+        ("key", API_KEY.as_str()),
+    ];
+    let url = url::Url::parse_with_params(
+        "https://youtube.googleapis.com/youtube/v3/playlistItems",
+        &query_params,
+    )
+    .unwrap();
+    let req = client.get(url.as_str()).send().await?;
+    let mut json: PlaylistItems = req.json().await?;
+
+    let mut out = Vec::with_capacity(json.page_info.total_results as usize);
+
+    out.extend(
+        json.items
+            .iter()
+            .map(|v| {
+                format!(
+                    "https://youtube.com/watch?v={}",
+                    v.snippet.resource_id.video_id
+                )
+            })
+            .map(|u| url::Url::parse(u.as_str()).unwrap()),
+    );
+
+    while let Some(token) = json.next_page_token {
+        let query_params = [
+            ("part", "snippet"),
+            ("maxResults", "50"),
+            ("playlist_id", list_id.1.as_ref()),
+            ("pageToken", token.as_str()),
+            ("key", API_KEY.as_str()),
+        ];
+        let url = url::Url::parse_with_params(
+            "https://youtube.googleapis.com/youtube/v3/playlistItems",
+            &query_params,
+        )
+        .unwrap();
+        let req = client.get(url.as_str()).send().await?;
+        json = req.json().await?;
+
+        out.extend(
+            json.items
+                .iter()
+                .map(|v| {
+                    format!(
+                        "https://youtube.com/video?v={}",
+                        v.snippet.resource_id.video_id
+                    )
+                })
+                .map(|u| url::Url::parse(u.as_str()).unwrap()),
+        );
+    }
+    Ok(out)
+}
+#[hook]
+async fn handle_spotify(
+    uri: url::Url,
+) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+    static CLIENT: once_cell::sync::Lazy<aspotify::Client> = once_cell::sync::Lazy::new(|| {
+        aspotify::Client::new(
+            aspotify::ClientCredentials::from_env_vars("WH_SPOTIFY_ID", "WH_SPOTIFY_SECRET")
+                .expect("You need the WH_SPOTIFY_SECRET and WH_SPOTIFY_ID variable set!"),
+        )
+    });
+    let mut out = Vec::new();
+    if uri.scheme() == "spotify" {
+        let path = uri.path();
+        let mut i = path.split(':');
+        let (id_type, id) = (i.next(), i.next());
+        if id_type.is_none() || id.is_none() {
+            message_err!("You provided an invalid spotify uri")
+        }
+        let id_type = id_type.unwrap();
+        let id = id.unwrap();
+        match id_type {
+            "track" => {
+                let track = CLIENT.tracks().get_track(id, None).await;
+                if let Err(aspotify::model::Error::Endpoint(e)) = &track {
+                    if e.status == 400 {
+                        message_err!("Invalid spotify url")
+                    }
+                }
+
+                out.push(track?.data.name);
+            }
+            "playlist" => {
+                let playlists = CLIENT.playlists();
+                let data = playlists.get_playlist(id, None).await;
+                if let Err(aspotify::model::Error::Endpoint(e)) = &data {
+                    dbg!(&e);
+                    if e.status == 404 {
+                        message_err!("Invalid spotify url");
+                    }
+                }
+                let page = data?.data.tracks;
+
+                let length = page.total;
+                let mut totvec = Vec::with_capacity(length);
+                let mut offset = 0;
+
+                while offset < length {
+                    let new_page_res = playlists.get_playlists_items(id, 50, offset, None).await;
+                    let new_page = new_page_res?.data;
+                    let len = new_page.items.len();
+                    totvec.extend(new_page.items);
+                    offset += len;
+                }
+                for track in totvec {
+                    if let Some(item) = &track.item {
+                        let name = match item {
+                            aspotify::model::PlaylistItemType::Track(t) => format!(
+                                "{} - {}",
+                                t.name,
+                                t.artists.first().map(|a| a.name.as_str()).unwrap_or("")
+                            ),
+                            aspotify::model::PlaylistItemType::Episode(e) => {
+                                format!("{} - {}", e.name, e.show.name)
+                            }
+                        };
+                        out.push(name);
+                    }
+                }
+            }
+
+            "album" => {
+                let albums = CLIENT.albums();
+                let data = albums.get_album(id, None).await;
+                if let Err(aspotify::model::Error::Endpoint(e)) = &data {
+                    if e.status == 400 {
+                        message_err!("Invalid spotify url")
+                    }
+                }
+
+                let page = data?.data.tracks;
+
+                let length = page.total;
+                let mut totvec = Vec::with_capacity(length);
+                let mut offset = 0;
+
+                while offset < length {
+                    let new_page = albums.get_album_tracks(id, 50, offset, None).await?.data;
+                    let len = new_page.items.len();
+                    totvec.extend(new_page.items);
+                    offset += len;
+                }
+                for track in totvec {
+                    let name = format!(
+                        "{} - {}",
+                        track.name,
+                        track.artists.first().map(|a| a.name.as_str()).unwrap_or("")
+                    );
+                    out.push(name);
+                }
+            }
+            _ => message_err!("unknown spotify uri type"),
+        }
+    } else {
+        let path = uri.path_segments();
+        if path.is_none() {
+            message_err!("Error when parsing url");
+        }
+        let mut path = path.unwrap();
+        let (type_id, id) = (path.next(), path.next());
+        if type_id.is_none() || id.is_none() {
+            message_err!("Please input valid spotify url")
+        }
+        let type_id = type_id.unwrap();
+        let id = id.unwrap();
+
+        let uri = url::Url::parse(&format!("spotify:{}:{}", type_id, id)).unwrap();
+
+        out = handle_spotify(uri).await?;
+    }
+
+    Ok(out)
+}
+
+#[derive(Clone, Debug)]
+pub enum SongUrl {
+    YoutubeVideo(url::Url),
+    YoutubePlaylist(url::Url),
+    Spotify(url::Url),
+    Query(String),
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct PlaylistItems {
+    #[serde(alias = "nextPageToken")]
+    next_page_token: Option<String>,
+    #[serde(alias = "pageInfo")]
+    page_info: PageInfo,
+    items: Vec<Items>,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct PageInfo {
+    #[serde(alias = "totalResults")]
+    total_results: u32,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct Items {
+    #[serde(alias = "snippet")]
+    snippet: Snippet,
+}
+
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct Snippet {
+    #[serde(alias = "resourceId")]
+    resource_id: ResourceId,
+}
+#[derive(Debug, Clone, Deserialize, Serialize)]
+struct ResourceId {
+    #[serde(alias = "videoId")]
+    video_id: String,
+}
+
+pub async fn get_video_name(url: &str) -> CommandResult<Option<String>> {
+    let client = reqwest::Client::new();
+
+    let q_url = url::Url::parse(url)?;
+    let mut pairs = q_url.query_pairs();
+    let list_id = pairs.find(|(k, _)| k == "v");
+    if list_id.is_none() {
+        message_err!("You need to give a valid youtube link link!");
+    }
+    let list_id = list_id.unwrap();
+    let query_params = [
+        ("part", "snippet"),
+        ("id", list_id.1.as_ref()),
+        ("key", API_KEY.as_str()),
+    ];
+    let url = url::Url::parse_with_params(
+        "https://youtube.googleapis.com/youtube/v3/videos",
+        &query_params,
+    )
+    .unwrap();
+    let req = client.get(url.as_str()).send().await?;
+    let json: serde_json::Value = req.json().await?;
+    let pointer = json.pointer("/items/0/snippet/title");
+    let title = pointer.map(|v| v.as_str()).flatten().map(|s| s.to_string());
+    Ok(title)
+}
+
+/*
+   _  ____  _             _ _     _    __
+ / / |  _ \| | __ _ _   _| (_)___| |_  \ \
+/ /  | |_) | |/ _` | | | | | / __| __|  \ \
+\ \  |  __/| | (_| | |_| | | \__ \ |_   / /
+ \_\ |_|   |_|\__,_|\__, |_|_|___/\__| /_/
+                    |___/
+*/
+
+use serenity::prelude::Context;
+use wh_database::shared::{DatabaseKey, Id};
+
+#[derive(Clone, Debug)]
+struct PlaylistRaw {
+    uid: i64,
+    userid: i64,
+    guildid: i64,
+    name: String,
+    items: Vec<String>,
+}
+
+pub struct Playlist {
+    pub uid: i64,
+    pub userid: Id,
+    pub guildid: Id,
+    pub name: String,
+    pub items: Vec<String>,
+}
+
+impl PlaylistRaw {
+    fn into_processed(self) -> Playlist {
+        Playlist {
+            uid: self.uid,
+            userid: self.userid.into(),
+            guildid: self.guildid.into(),
+            name: self.name,
+            items: self.items,
+        }
+    }
+}
+pub async fn get_all_playlist(ctx: &Context, guildid: u64) -> CommandResult<Vec<Playlist>> {
+    use serenity::futures::stream::StreamExt;
+    let lock = ctx.data.read().await;
+    let db = lock.get::<DatabaseKey>().unwrap();
+    let res = query_as!(
+        PlaylistRaw,
+        "SELECT * FROM user_playlist WHERE guildid = $1::int8",
+        Id(guildid) as _,
+    )
+    .fetch(db);
+
+    let iter = res
+        .map(|v| v.map(|v| v.into_processed()))
+        .collect::<Vec<_>>()
+        .await;
+    let mut out = Vec::with_capacity(iter.len());
+    for res in iter {
+        out.push(res?);
+    }
+    Ok(out)
+}
+
+pub async fn get_playlist(
+    ctx: &Context,
+    guildid: u64,
+    name: &str,
+) -> CommandResult<Option<Playlist>> {
+    let lock = ctx.data.read().await;
+    let db = lock.get::<DatabaseKey>().unwrap();
+    query_as!(
+        PlaylistRaw,
+        "SELECT * FROM user_playlist WHERE guildid = $1::int8 AND name = $2::varchar(32)",
+        Id(guildid) as _,
+        name
+    )
+    .fetch_optional(db)
+    .await
+    .map(|res| res.map(|r| r.into_processed()))
+    .map_err(|e| Box::new(e).into())
+}
+
+pub async fn create_playlist_if_not_exist(
+    ctx: &Context,
+    name: &str,
+    user_id: u64,
+    guildid: u64,
+) -> CommandResult<bool> {
+    let existing = get_playlist(ctx, guildid, name).await?;
+    if existing.is_some() {
+        return Ok(false);
+    }
+    if name.len() > 32 {
+        message_err!("Playlist name too long (32 characters maximum)");
+    }
+    let lock = ctx.data.read().await;
+    let db = lock.get::<DatabaseKey>().unwrap();
+
+    let res = query!("INSERT INTO user_playlist (userid, guildid, name, items) VALUES ($1::int8, $2::int8, $3::varchar(32),  $4::text[])", 
+        Id(user_id) as _,
+        Id(guildid) as _,
+        name,
+        &[][..]
+    ).execute(db).await?;
+
+    Ok(true)
 }

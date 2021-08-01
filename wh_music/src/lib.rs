@@ -14,6 +14,9 @@ extern crate aspotify;
 extern crate once_cell;
 extern crate serde_json;
 extern crate tokio;
+extern crate wh_database;
+#[macro_use]
+extern crate sqlx;
 
 pub mod commands;
 pub mod module;
