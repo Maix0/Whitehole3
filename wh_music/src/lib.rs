@@ -17,6 +17,7 @@ extern crate tokio;
 extern crate wh_database;
 #[macro_use]
 extern crate sqlx;
+extern crate rand;
 
 pub mod commands;
 pub mod module;

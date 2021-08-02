@@ -19,7 +19,7 @@ async fn check_permission_manage_or_admin(
     _: &CommandOptions,
 ) -> Result<(), Reason> {
     let permission = "permission.manage";
-    let res = crate::shared::has_permission(
+    let res = crate::shared::user_permission::has_permission(
         ctx,
         msg,
         msg.author.id.0,

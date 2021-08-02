@@ -2,8 +2,8 @@ use serenity::framework::standard::{macros::hook, CommandError, CommandResult};
 use serenity::model::id::UserId;
 use serenity::prelude::TypeMapKey;
 
-pub const MAX_QUEUED_ITEM: usize = 250;
-pub const TIME_BEFORE_LEAVE: u64 = 5 * 60 * 10u64.pow(3);
+pub const MAX_QUEUED_ITEM: usize = 1000;
+pub const TIME_BEFORE_LEAVE: u64 = 5 * 60 * 1000;
 
 #[derive(Clone, Debug)]
 pub struct TrackMetadataKey;
@@ -27,9 +27,9 @@ pub struct MusicEventHandler {
 #[serenity::async_trait]
 impl songbird::events::EventHandler for MusicEventHandler {
     async fn act(&self, _: &songbird::events::EventContext<'_>) -> Option<songbird::events::Event> {
-        if self.call.lock().await.queue().len() == 0 {
+        if self.call.lock().await.queue().is_empty() {
             tokio::time::sleep(tokio::time::Duration::from_millis(TIME_BEFORE_LEAVE)).await;
-            if self.call.lock().await.queue().len() == 0 {
+            if self.call.lock().await.queue().is_empty() {
                 match self.call.lock().await.leave().await {
                     Ok(_) => (),
                     Err(e) => error!("Error when disconnecting: {}", e),
@@ -278,7 +278,7 @@ async fn handle_spotify(
     Ok(out)
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SongUrl {
     YoutubeVideo(url::Url),
     YoutubePlaylist(url::Url),
@@ -342,6 +342,56 @@ pub async fn get_video_name(url: &str) -> CommandResult<Option<String>> {
     let pointer = json.pointer("/items/0/snippet/title");
     let title = pointer.map(|v| v.as_str()).flatten().map(|s| s.to_string());
     Ok(title)
+}
+
+pub async fn play_yt_url<U>(
+    call: std::sync::Arc<tokio::sync::Mutex<songbird::Call>>,
+    url: U,
+    ctx: &Context,
+    msg: &serenity::model::channel::Message,
+    show_addition: bool,
+) -> CommandResult
+where
+    U: AsRef<str> + Send + Sync + Clone + 'static,
+{
+    match songbird::input::restartable::Restartable::ytdl(url, true).await {
+        Ok(y) => {
+            use songbird::input::Input;
+            if call.lock().await.queue().len() >= crate::shared::MAX_QUEUED_ITEM {
+                message_err!("❌There is too many items in the queue!");
+            }
+            let song: Input = y.into();
+            let metadata = crate::shared::TrackMetadata {
+                url: song.metadata.source_url.clone(),
+                title: song.metadata.title.clone(),
+                duration: song.metadata.duration,
+                added_by: msg.author.id,
+            };
+            if show_addition {
+                if let Some(u) = metadata.url.as_ref() {
+                    reply_message!(ctx, msg, format!("Added {url} to the queue", url = u));
+                } else {
+                    reply_message!(ctx, msg, "Added the song to the queue");
+                }
+            }
+            let (track, handle) = songbird::tracks::create_player(song);
+            handle
+                .typemap()
+                .write()
+                .await
+                .insert::<crate::shared::TrackMetadataKey>(metadata);
+            let mut call_lock = call.lock().await;
+            call_lock.enqueue(track);
+            Ok(())
+        }
+        Err(e) => {
+            if let songbird::input::error::Error::Io(_) = &e {
+                error_err!("You need to have youtube-dl installed!");
+            } else {
+                message_err!("❌ No video was found for this song");
+            }
+        }
+    }
 }
 
 /*
@@ -441,7 +491,7 @@ pub async fn create_playlist_if_not_exist(
     let lock = ctx.data.read().await;
     let db = lock.get::<DatabaseKey>().unwrap();
 
-    let res = query!("INSERT INTO user_playlist (userid, guildid, name, items) VALUES ($1::int8, $2::int8, $3::varchar(32),  $4::text[])", 
+    query!("INSERT INTO user_playlist (userid, guildid, name, items) VALUES ($1::int8, $2::int8, $3::varchar(32),  $4::text[])", 
         Id(user_id) as _,
         Id(guildid) as _,
         name,

@@ -1,8 +1,6 @@
 use serenity::framework::standard::{macros::*, CommandResult};
 use serenity::model::channel::Message;
 use serenity::{client::Context, framework::standard::Args};
-use songbird::input::Input;
-
 #[command]
 #[only_in(guilds)]
 #[usage("[query or url]")]
@@ -56,24 +54,24 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 
     match song_query {
         crate::shared::SongType::SingleUrl(q) => {
-            play_yt_url(call, q, ctx, msg, true).await?;
+            crate::shared::play_yt_url(call, q, ctx, msg, true).await?;
         }
         crate::shared::SongType::MultipleUrl(list) => {
             let mut count = 0;
             for q in list {
-                play_yt_url(call.clone(), q, ctx, msg, false).await?;
+                crate::shared::play_yt_url(call.clone(), q, ctx, msg, false).await?;
                 count += 1;
             }
             reply_message!(ctx, msg, format!("Added {} song(s) to the queue", count));
         }
         crate::shared::SongType::SingleQuery(q) => {
-            play_yt_url(call, format!("ytsearch1:{}", q), ctx, msg, true).await?;
+            crate::shared::play_yt_url(call, format!("ytsearch1:{}", q), ctx, msg, true).await?;
         }
         crate::shared::SongType::MultipleQuery(list) => {
             let mut count = 0;
             let show_addition = list.len() == 1;
             for q in list {
-                play_yt_url(
+                crate::shared::play_yt_url(
                     call.clone(),
                     format!("ytsearch1:{}", q),
                     ctx,
@@ -87,53 +85,4 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         }
     }
     Ok(())
-}
-
-async fn play_yt_url<U>(
-    call: std::sync::Arc<tokio::sync::Mutex<songbird::Call>>,
-    url: U,
-    ctx: &Context,
-    msg: &Message,
-    show_addition: bool,
-) -> CommandResult
-where
-    U: AsRef<str> + Send + Sync + Clone + 'static,
-{
-    match songbird::input::restartable::Restartable::ytdl(url, true).await {
-        Ok(y) => {
-            if call.lock().await.queue().len() >= crate::shared::MAX_QUEUED_ITEM {
-                message_err!("❌There is too many items in the queue!");
-            }
-            let song: Input = y.into();
-            let metadata = crate::shared::TrackMetadata {
-                url: song.metadata.source_url.clone(),
-                title: song.metadata.title.clone(),
-                duration: song.metadata.duration,
-                added_by: msg.author.id,
-            };
-            if show_addition {
-                if let Some(u) = metadata.url.as_ref() {
-                    reply_message!(ctx, msg, format!("Added {url} to the queue", url = u));
-                } else {
-                    reply_message!(ctx, msg, "Added the song to the queue");
-                }
-            }
-            let (track, handle) = songbird::tracks::create_player(song);
-            handle
-                .typemap()
-                .write()
-                .await
-                .insert::<crate::shared::TrackMetadataKey>(metadata);
-            let mut call_lock = call.lock().await;
-            call_lock.enqueue(track);
-            Ok(())
-        }
-        Err(e) => {
-            if let songbird::input::error::Error::Io(_) = &e {
-                error_err!("You need to have youtube-dl installed!");
-            } else {
-                message_err!("❌ No video was found for this song");
-            }
-        }
-    }
 }

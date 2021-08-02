@@ -24,7 +24,7 @@ impl EventHandler for WhEventHandler {
         _data_about_bot: serenity::model::gateway::Ready,
     ) {
         info!(
-            "Started `{}` on {} guild{}",
+            "Started \x1b[1m{}\x1b[0m on {} guild{}",
             _data_about_bot.user.name,
             _data_about_bot.guilds.len(),
             if _data_about_bot.guilds.len() == 1 {

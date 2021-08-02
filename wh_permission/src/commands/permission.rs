@@ -21,7 +21,7 @@ pub async fn permission(ctx: &Context, msg: &Message) -> CommandResult {
 #[usage("")]
 #[example("")]
 pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
-    let perms = crate::shared::static_get_permission();
+    let perms = crate::shared::user_permission::static_get_permission();
     reply_message!(
         ctx,
         msg,
@@ -51,7 +51,7 @@ pub async fn grant(ctx: &Context, msg: &Message, mut args: Args) -> CommandResul
         message_err!("You need to provide a permission to give!");
     }
     let permission = permission.unwrap();
-    if !crate::shared::static_get_permission().contains(&permission.as_str()) {
+    if !crate::shared::user_permission::static_get_permission().contains(&permission.as_str()) {
         message_err!("This permission does't exist!");
     }
     if permission == "permission.manage" {
@@ -71,8 +71,12 @@ pub async fn grant(ctx: &Context, msg: &Message, mut args: Args) -> CommandResul
     }
     let lock = ctx.data.read().await;
     let db = lock.get::<wh_database::shared::DatabaseKey>().unwrap();
-    crate::shared::create_permission_if_not_exists(ctx, user_mention.id.0, msg.guild_id.unwrap().0)
-        .await?;
+    crate::shared::user_permission::create_permission_if_not_exists(
+        ctx,
+        user_mention.id.0,
+        msg.guild_id.unwrap().0,
+    )
+    .await?;
     let res = query!("update user_permission set ids = array_distinct(array_append(ids, $3::text)) where userid  = $1::int8 and guildid = $2::int8;",
         wh_database::shared::Id(user_mention.id.0) as _,
         wh_database::shared::Id(msg.guild_id.unwrap().0) as _,
@@ -107,7 +111,7 @@ pub async fn remove(ctx: &Context, msg: &Message, mut args: Args) -> CommandResu
     }
     let permission = permission.unwrap();
 
-    if !crate::shared::static_get_permission().contains(&permission.as_str()) {
+    if !crate::shared::user_permission::static_get_permission().contains(&permission.as_str()) {
         message_err!("This permission does't exist!");
     }
 
@@ -128,8 +132,12 @@ pub async fn remove(ctx: &Context, msg: &Message, mut args: Args) -> CommandResu
     }
     let lock = ctx.data.read().await;
     let db = lock.get::<wh_database::shared::DatabaseKey>().unwrap();
-    crate::shared::create_permission_if_not_exists(ctx, user_mention.id.0, msg.guild_id.unwrap().0)
-        .await?;
+    crate::shared::user_permission::create_permission_if_not_exists(
+        ctx,
+        user_mention.id.0,
+        msg.guild_id.unwrap().0,
+    )
+    .await?;
     let res = query!("update user_permission set ids = array_distinct(array_diff(ids, ARRAY[$3::text])) where userid  = $1::int8 and guildid = $2::int8;",
         wh_database::shared::Id(user_mention.id.0) as _,
         wh_database::shared::Id(msg.guild_id.unwrap().0) as _,
@@ -154,10 +162,18 @@ pub async fn remove(ctx: &Context, msg: &Message, mut args: Args) -> CommandResu
 #[max_args(1)]
 pub async fn view(ctx: &Context, msg: &Message) -> CommandResult {
     let usr_mention = msg.mentions.first().unwrap_or(&msg.author);
-    crate::shared::create_permission_if_not_exists(ctx, usr_mention.id.0, msg.guild_id.unwrap().0)
-        .await?;
-    let data =
-        crate::shared::get_permission(ctx, usr_mention.id.0, msg.guild_id.unwrap().0).await?;
+    crate::shared::user_permission::create_permission_if_not_exists(
+        ctx,
+        usr_mention.id.0,
+        msg.guild_id.unwrap().0,
+    )
+    .await?;
+    let data = crate::shared::user_permission::get_permission(
+        ctx,
+        usr_mention.id.0,
+        msg.guild_id.unwrap().0,
+    )
+    .await?;
     let data = data.unwrap();
     use serenity::prelude::Mentionable;
 
@@ -177,7 +193,6 @@ pub async fn view(ctx: &Context, msg: &Message) -> CommandResult {
 }
 
 mod role {
-
     use serenity::client::Context;
     use serenity::framework::standard::{macros::*, Args, CommandResult};
     use serenity::model::channel::Message;
@@ -210,7 +225,7 @@ mod role {
             message_err!("You need to provide a permission to give!");
         }
         let permission = permission.unwrap();
-        if !crate::shared::static_get_permission().contains(&permission.as_str()) {
+        if !crate::shared::user_permission::static_get_permission().contains(&permission.as_str()) {
             message_err!("This permission does't exist!");
         }
         if permission == "permission.manage" {
@@ -230,7 +245,7 @@ mod role {
         }
         let lock = ctx.data.read().await;
         let db = lock.get::<wh_database::shared::DatabaseKey>().unwrap();
-        crate::shared::create_role_permission_if_not_exist(
+        crate::shared::role_permission::create_role_permission_if_not_exist(
             ctx,
             role_mention.0,
             msg.guild_id.unwrap().0,
@@ -270,7 +285,7 @@ mod role {
             message_err!("You need to provide a permission to give!");
         }
         let permission = permission.unwrap();
-        if !crate::shared::static_get_permission().contains(&permission.as_str()) {
+        if !crate::shared::user_permission::static_get_permission().contains(&permission.as_str()) {
             message_err!("This permission does't exist!");
         }
         if permission == "permission.manage" {
@@ -290,7 +305,7 @@ mod role {
         }
         let lock = ctx.data.read().await;
         let db = lock.get::<wh_database::shared::DatabaseKey>().unwrap();
-        crate::shared::create_role_permission_if_not_exist(
+        crate::shared::role_permission::create_role_permission_if_not_exist(
             ctx,
             role_mention.0,
             msg.guild_id.unwrap().0,
@@ -324,14 +339,18 @@ mod role {
             message_err!("You need to mention a role!");
         }
         let role_mention = role_mention.unwrap();
-        crate::shared::create_role_permission_if_not_exist(
+        crate::shared::role_permission::create_role_permission_if_not_exist(
             ctx,
             role_mention.0,
             msg.guild_id.unwrap().0,
         )
         .await?;
-        let data = crate::shared::get_role_permission(ctx, role_mention.0, msg.guild_id.unwrap().0)
-            .await?;
+        let data = crate::shared::role_permission::get_role_permission(
+            ctx,
+            role_mention.0,
+            msg.guild_id.unwrap().0,
+        )
+        .await?;
         let data = data.unwrap();
         use serenity::prelude::Mentionable;
 

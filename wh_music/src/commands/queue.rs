@@ -31,17 +31,25 @@ pub async fn queue(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 embed.author(|f| f.name(format!("{}'s queue", guildname.as_str())));
                 let mut content = String::new();
 
-                for song in song {
+                for (index, song) in song.iter().enumerate() {
                     let typemap = song.typemap().read().await;
                     let metadata = typemap.get::<crate::shared::TrackMetadataKey>().unwrap();
                     use std::fmt::Write;
                     write!(
                         content,
-                        "[{title}]({url})\nAdded by: `{username} [{duration}]`\n",
-                        title = metadata.title.clone().unwrap_or_else(|| metadata
-                            .url
-                            .clone()
-                            .unwrap_or_else(|| String::from("Unknown"))),
+                        "`{index})`[{title}]({url})\nAdded by: `{username} [{duration}]`\n",
+                        title = {
+                            let mut title = metadata.title.clone().unwrap_or_else(|| {
+                                metadata
+                                    .url
+                                    .clone()
+                                    .unwrap_or_else(|| String::from("Unknown"))
+                            });
+                            if title.len() > 57 {
+                                title = title.chars().take(57).collect::<String>() + "...";
+                            }
+                            title
+                        },
                         url = metadata.url.as_deref().unwrap_or("https://youtube.com"),
                         username = {
                             let u = msg
@@ -88,7 +96,8 @@ pub async fn queue(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                                     .unwrap()
                             })
                             .as_deref()
-                            .unwrap_or("Unknown")
+                            .unwrap_or("Unknown"),
+                        index = page_num as usize * 10 + index as usize + 1
                     )?;
                 }
                 embed.description(content);

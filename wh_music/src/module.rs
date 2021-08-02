@@ -30,5 +30,5 @@ fn register_intent(
 }
 
 fn register_init() {
-    wh_permission::shared::add_permission(&["music.manage"]);
+    wh_permission::shared::user_permission::add_permission(&["music.manage"]);
 }

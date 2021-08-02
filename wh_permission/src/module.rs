@@ -26,5 +26,5 @@ fn register_intent(
 }
 
 fn register_init() {
-    crate::shared::add_permission(&["permission.manage"]);
+    crate::shared::user_permission::add_permission(&["permission.manage"]);
 }
