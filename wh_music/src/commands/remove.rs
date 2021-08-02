@@ -12,10 +12,15 @@ pub async fn remove(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let guild = msg.guild(&ctx.cache).await.unwrap();
     let index = args.parse::<u16>();
     if index.is_err() {
-        message_err!("You need to provide an valid index!");
+        message_err!(fluent!(MUSIC_ARG_invalid_number));
     }
+
     let index = index.unwrap();
 
+    if index == 0 {
+        message_err!(fluent!(MUSIC_ARG_invalid_number));
+    }
+    let index = index - 1;
     let channel_id = guild
         .voice_states
         .get(&msg.author.id)
@@ -25,18 +30,18 @@ pub async fn remove(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
             if channel_id.map(|c| c.0) == call.lock().await.current_channel().map(|c| c.0) {
                 match call.lock().await.queue().dequeue(index as usize) {
                     Some(_) => {
-                        reply_message!(ctx, msg, format!("Removed item at index {}", index));
+                        reply_message!(ctx, msg, format!(fluent!(MUSIC_remove_item), index + 1));
                     }
                     None => {
-                        message_err!("❌Index is out of bounds!");
+                        message_err!(fluent!(MUSIC_ARG_index_oob));
                     }
                 }
             } else {
-                message_err!("❌You need to be in the same channel as the bot!");
+                message_err!(fluent!(MUSIC_not_same_channel));
             }
         }
         None => {
-            message_err!("❌ Not connected to a voice channel");
+            message_err!(fluent!(MUSIC_voice_not_connected));
         }
     };
     Ok(())

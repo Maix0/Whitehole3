@@ -19,7 +19,7 @@ mod playlist_cmd {
     async fn add(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let name = args.single_quoted::<String>();
         if name.is_err() {
-            message_err!("You need to provide a valid playlist name!")
+            message_err!(fluent!(MUSIC_ARG_playlist_name))
         }
         let name = name.unwrap();
         let url = args.parse::<url::Url>();
@@ -28,7 +28,7 @@ mod playlist_cmd {
             Err(_) => crate::shared::SongUrl::Query(args.remains().unwrap_or("").to_string()),
         };
         if crate::shared::SongUrl::Query("".to_string()) == song_url {
-            message_err!("You need to provide a query or an url!")
+            message_err!(fluent!(MUSIC_ARG_query_or_url));
         }
 
         let song_query = song_url.into_query().await?;
@@ -52,7 +52,7 @@ mod playlist_cmd {
 
                 let output = command.output()?;
                 if output.stdout.is_empty() {
-                    message_err!(format!("Couldn't find a video for `{}`", q));
+                    message_err!(format!(fluent!(MUSIC_not_found_video), q));
                 }
                 let id = String::from_utf8(output.stdout).unwrap();
                 urls.push(format!(" https://www.youtube.com/watch?v={}", id));
@@ -69,7 +69,7 @@ mod playlist_cmd {
                         .stdout(Stdio::piped());
                     let output = command.output()?;
                     if output.stdout.is_empty() {
-                        message_err!(format!("Couldn't find a video for `{}`", q));
+                        message_err!(format!(fluent!(MUSIC_not_found_video), q));
                     }
                     let id = String::from_utf8(output.stdout).unwrap();
                     urls.push(format!("https://www.youtube.com/watch?v={}", id));
@@ -85,7 +85,7 @@ mod playlist_cmd {
             ctx,
             msg,
             format!(
-                "{} song{} has been added to the playlist `{}`",
+                fluent!(MUSIC_songs_added_playlist),
                 urls.len(),
                 if urls.len() <= 1 { "" } else { "s" },
                 name
@@ -100,29 +100,29 @@ mod playlist_cmd {
     async fn remove(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let name = args.single_quoted::<String>();
         if name.is_err() {
-            message_err!("You need to specify a playlist name!");
+            message_err!(fluent!(MUSIC_ARG_playlist_name));
         }
         let name = name.unwrap();
         let index = args.single::<u16>();
         if index.is_err() {
-            message_err!("You need to specify and element to remove");
+            message_err!(fluent!(MUSIC_ARG_invalid_number));
         }
         let index = index.unwrap();
         if index == 0 {
-            message_err!("You need to specify and element to remove");
+            message_err!(fluent!(MUSIC_ARG_invalid_number));
         }
 
         let playlist = crate::shared::get_playlist(ctx, msg.guild_id.unwrap().0, &name).await?;
         if playlist.is_none() {
-            message_err!("The playlist doesn't exist!");
+            message_err!(fluent!(MUSIC_playlist_not_exist));
         }
         let playlist = playlist.unwrap();
         if playlist.userid.0 != msg.author.id.0 {
-            message_err!("You don't own this playlist!");
+            message_err!(fluent!(MUSIC_playlist_not_owner));
         }
 
         if playlist.items.get(index as usize - 1).is_none() {
-            message_err!("You provided an invalid index!");
+            message_err!(fluent!(MUSIC_ARG_invalid_number));
         }
 
         let lock = ctx.data.read().await;
@@ -133,7 +133,7 @@ mod playlist_cmd {
         ).execute(db).await?;
 
         if res.rows_affected() < 1 {
-            message_err!("Couldn't remove the item");
+            message_err!(fluent!(MUSIC_playlist_failed_remove));
         }
         Ok(())
     }
@@ -145,11 +145,11 @@ mod playlist_cmd {
     async fn new(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let name = args.single_quoted::<String>();
         if name.is_err() {
-            message_err!("You need to provide a name for a new playlist!\nPut it within quotes if it contains spaces");
+            message_err!(fluent!(MUSIC_ARG_playlist_name));
         }
         let name = name.unwrap();
         if name.len() > 32 {
-            message_err!("Playlist name is restricted to no more than 32 characters");
+            message_err!(fluent!(MUSIC_ARG_playlist_name_too_long));
         }
         let created = crate::shared::create_playlist_if_not_exist(
             ctx,
@@ -159,9 +159,9 @@ mod playlist_cmd {
         )
         .await?;
         if created {
-            reply_message!(ctx, msg, "The playlist has been created");
+            reply_message!(ctx, msg, fluent!(MUSIC_playlist_created));
         } else {
-            reply_message!(ctx, msg, "A playlist with that name already exists!");
+            reply_message!(ctx, msg, fluent!(MUSIC_playlist_exists));
         }
         Ok(())
     }
@@ -171,7 +171,7 @@ mod playlist_cmd {
     async fn delete(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let name = args.single_quoted::<String>();
         if name.is_err() {
-            message_err!("You need to provide a playlist name!");
+            message_err!(fluent!(MUSIC_ARG_playlist_name));
         }
         let lock = ctx.data.read().await;
         let db = lock.get::<wh_database::shared::DatabaseKey>().unwrap();
@@ -181,11 +181,9 @@ WITH deleted AS
     (DELETE FROM user_playlist WHERE userid = $1::int8 AND guildid = $2::int8 AND name = $3::varchar(32) RETURNING *) 
 SELECT count(*) FROM deleted", wh_database::shared::Id(msg.author.id.0)as _, wh_database::shared::Id(msg.guild_id.unwrap().0) as _, name ).fetch_one(db).await?;
         if res.count == Some(0) {
-            message_err!(
-                "Couldn't remove the playlists, maybe you misspeled it or you aren't the owner"
-            )
+            message_err!(fluent!(MUSIC_playlist_failed_delete))
         } else {
-            reply_message!(ctx, msg, "The playlist has been deleted");
+            reply_message!(ctx, msg, fluent!(MUSIC_playlist_deleted));
         }
         Ok(())
     }
@@ -197,12 +195,12 @@ SELECT count(*) FROM deleted", wh_database::shared::Id(msg.author.id.0)as _, wh_
         let name = args.single_quoted::<String>();
         let page_num = args.single::<u16>().unwrap_or(0);
         if name.is_err() {
-            message_err!("You need to provide a playlist name");
+            message_err!(fluent!(MUSIC_ARG_playlist_name));
         }
         let name = name.unwrap();
         let playlist = crate::shared::get_playlist(ctx, msg.guild_id.unwrap().0, &name).await?;
         if playlist.is_none() {
-            message_err!("This playlist doesn't exist");
+            message_err!(fluent!(MUSIC_playlist_not_exist));
         }
         let playlist = playlist.unwrap();
 
@@ -249,7 +247,7 @@ SELECT count(*) FROM deleted", wh_database::shared::Id(msg.author.id.0)as _, wh_
         let page_num = args.single::<u16>().unwrap_or(0);
         let playlists = crate::shared::get_all_playlist(ctx, msg.guild_id.unwrap().0).await?;
         if playlists.is_empty() {
-            message_err!("This server doesn't have any playlists");
+            message_err!(fluent!(MUSIC_no_playlists));
         }
 
         let len = (playlists.len() as f32 / 10f32).ceil() as u16;
@@ -292,13 +290,13 @@ SELECT count(*) FROM deleted", wh_database::shared::Id(msg.author.id.0)as _, wh_
     pub async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let name = args.single_quoted::<String>();
         if name.is_err() {
-            message_err!("You need to specify a playlist name!");
+            message_err!(fluent!(MUSIC_ARG_playlist_name));
         }
         let name = name.unwrap();
 
         let playlist = crate::shared::get_playlist(ctx, msg.guild_id.unwrap().0, &name).await?;
         if playlist.is_none() {
-            message_err!("Unkown playlist");
+            message_err!(fluent!(MUSIC_playlist_not_exist));
         }
         let playlist = playlist.unwrap();
 
@@ -316,7 +314,7 @@ SELECT count(*) FROM deleted", wh_database::shared::Id(msg.author.id.0)as _, wh_
 
             let connect_to = match channel_id {
                 None => {
-                    message_err!("You need to be connected in a voice channel to use this command")
+                    message_err!(fluent!(MUSIC_voice_not_connected))
                 }
                 Some(vc) => vc,
             };
@@ -337,9 +335,9 @@ SELECT count(*) FROM deleted", wh_database::shared::Id(msg.author.id.0)as _, wh_
         let manager = songbird::get(ctx).await.unwrap();
         let call = manager.get(msg.guild_id.unwrap()).unwrap();
 
-        use rand::seq::SliceRandom;
         let mut songs = playlist.items;
         if random {
+            use rand::seq::SliceRandom;
             &mut songs[..].shuffle(&mut rand::thread_rng());
         }
         for song in songs {

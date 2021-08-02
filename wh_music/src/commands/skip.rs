@@ -16,19 +16,13 @@ pub async fn skip(ctx: &Context, msg: &Message) -> CommandResult {
     match call_opt {
         Some(call) => {
             if channel_id.map(|c| c.0) == call.lock().await.current_channel().map(|c| c.0) {
-                match call.lock().await.queue().skip() {
-                    Ok(_) => {}
-                    Err(e) => both_err!(
-                        "An error occured when skipping !",
-                        format!("Error when skipping: {}", e)
-                    ),
-                };
+                call.lock().await.queue().skip()?;
             } else {
-                message_err!("❌You need to be in the same channel as the bot!");
+                message_err!(fluent!(MUSIC_not_same_channel));
             }
         }
         None => {
-            message_err!("❌ Not connected to a voice channel");
+            message_err!(fluent!(MUSIC_voice_not_connected));
         }
     };
     Ok(())

@@ -18,16 +18,16 @@ pub async fn resume(ctx: &Context, msg: &Message) -> CommandResult {
             if channel_id.map(|c| c.0) == call.lock().await.current_channel().map(|c| c.0) {
                 if let Err(e) = call.lock().await.queue().resume() {
                     both_err!(
-                        "Error when resuming!",
-                        format!("Error when resuming: {}", e)
+                        fluent!(MUSIC_error_resuming),
+                        format!(fluent!(MUSIC_LOG_err_resuming), e)
                     );
                 }
             } else {
-                message_err!("❌You need to be in the same channel as the bot!");
+                message_err!(fluent!(MUSIC_not_same_channel));
             }
         }
         None => {
-            message_err!("❌ Not connected to a voice channel");
+            message_err!(fluent!(MUSIC_voice_not_connected));
         }
     };
     Ok(())

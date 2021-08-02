@@ -110,11 +110,11 @@ pub async fn queue(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     })
                     .await?;
             } else {
-                reply_message!(ctx, msg, "The queue is empty");
+                reply_message!(ctx, msg, fluent!(MUSIC_empty_queue));
             }
         }
         None => {
-            reply_message!(ctx, msg, "❌I am not connected to a voice channel.");
+            reply_message!(ctx, msg, fluent!(MUSIC_voice_not_connected));
         }
     }
 

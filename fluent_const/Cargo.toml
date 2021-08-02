@@ -1,0 +1,17 @@
+[package]
+name = "fluent_const"
+version = "0.1.0"
+authors = ["Maix0 <maix522@gmail.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+proc-macro = true 
+
+[dependencies]
+dotenv="0.15.0"
+fluent = "0.15.0"
+intl-memoizer = "0.5.1"
+once_cell = "1.8.0"
+quote = "1.0.9"

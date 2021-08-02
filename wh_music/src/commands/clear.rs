@@ -21,11 +21,11 @@ pub async fn clear(ctx: &Context, msg: &Message) -> CommandResult {
             if channel_id.map(|c| c.0) == call.lock().await.current_channel().map(|c| c.0) {
                 call.lock().await.queue().stop();
             } else {
-                message_err!("❌You need to be in the same channel as the bot!");
+                message_err!(fluent!(MUSIC_not_same_channel));
             }
         }
         None => {
-            message_err!("❌ Not connected to a voice channel");
+            message_err!(fluent!(MUSIC_voice_not_connected));
         }
     };
     Ok(())

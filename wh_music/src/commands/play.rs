@@ -30,7 +30,7 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 
         let connect_to = match channel_id {
             None => {
-                message_err!("You need to be connected in a voice channel to use this command")
+                message_err!(fluent!(MUSIC_need_voice_channel));
             }
             Some(vc) => vc,
         };
@@ -62,7 +62,11 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                 crate::shared::play_yt_url(call.clone(), q, ctx, msg, false).await?;
                 count += 1;
             }
-            reply_message!(ctx, msg, format!("Added {} song(s) to the queue", count));
+            reply_message!(
+                ctx,
+                msg,
+                format!(fluent!(MUSIC_add_to_queue_multiple), count)
+            );
         }
         crate::shared::SongType::SingleQuery(q) => {
             crate::shared::play_yt_url(call, format!("ytsearch1:{}", q), ctx, msg, true).await?;
@@ -81,7 +85,11 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
                 .await?;
                 count += 1;
             }
-            reply_message!(ctx, msg, format!("Added {} song(s) to the queue", count));
+            reply_message!(
+                ctx,
+                msg,
+                format!(fluent!(MUSIC_add_to_queue_multiple), count)
+            );
         }
     }
     Ok(())

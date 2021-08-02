@@ -14,13 +14,13 @@ pub async fn move_cmd(ctx: &Context, msg: &Message, args: Args) -> CommandResult
     let guild = msg.guild(&ctx.cache).await.unwrap();
     let src_index = args.parse::<u16>();
     if src_index.is_err() {
-        message_err!("You need to provide an valid index!");
+        message_err!(fluent!(MUSIC_ARG_invalid_number));
     }
     let src_index = src_index.unwrap();
 
     let dest_index = args.parse::<u16>();
     if dest_index.is_err() {
-        message_err!("You need to provide an valid index!");
+        message_err!(fluent!(MUSIC_ARG_invalid_number));
     }
     let dest_index = dest_index.unwrap();
 
@@ -31,9 +31,7 @@ pub async fn move_cmd(ctx: &Context, msg: &Message, args: Args) -> CommandResult
     match call_opt {
         Some(call) => {
             if dest_index as usize > call.lock().await.queue().len() {
-                message_err!(
-                    "❌The given index isn't valid as it is pointing outside of the queue!"
-                )
+                message_err!(fluent!(MUSIC_ARG_index_oob))
             }
             if channel_id.map(|c| c.0) == call.lock().await.current_channel().map(|c| c.0) {
                 call.lock()
@@ -42,20 +40,18 @@ pub async fn move_cmd(ctx: &Context, msg: &Message, args: Args) -> CommandResult
                     .modify_queue(|queue| -> Result<(), wh_core::Error> {
                         let item = queue.remove(src_index as usize);
                         if let Some(item) = item {
-                            debug!("removed item!");
                             queue.insert(dest_index as usize, item);
                         } else {
-                            message_err!("❌Index out of bounds");
+                            message_err!(fluent!(MUSIC_ARG_index_oob));
                         }
                         Ok(())
                     })?;
-                debug!("Done lock");
             } else {
-                message_err!("❌You need to be in the same channel as the bot!");
+                message_err!(fluent!(MUSIC_not_same_channel));
             }
         }
         None => {
-            message_err!("❌ Not connected to a voice channel");
+            message_err!(fluent!(MUSIC_voice_not_connected));
         }
     };
     Ok(())

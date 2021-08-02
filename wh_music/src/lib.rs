@@ -18,6 +18,8 @@ extern crate wh_database;
 #[macro_use]
 extern crate sqlx;
 extern crate rand;
+#[macro_use]
+extern crate fluent_const;
 
 pub mod commands;
 pub mod module;

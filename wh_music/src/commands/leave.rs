@@ -11,22 +11,19 @@ async fn leave(ctx: &Context, msg: &Message) -> CommandResult {
     let guild = msg.guild(&ctx.cache).await.unwrap();
     let guild_id = guild.id;
 
-    let manager = songbird::get(ctx)
-        .await
-        .expect("Songbird Voice client placed in at initialisation.")
-        .clone();
+    let manager = songbird::get(ctx).await.unwrap().clone();
     let has_handler = manager.get(guild_id).is_some();
 
     if has_handler {
         if let Err(e) = manager.remove(guild_id).await {
             both_err!(
-                "An error occured when leaving the channel",
-                format!("Error when leaving a channel: {}", e)
+                fluent!(MUSIC_error_leaving_channel),
+                format!(fluent!(MUSIC_LOG_err_leaving_channel), e)
             );
         }
-        reply_message!(ctx, msg, "Left Voice Channel");
+        reply_message!(ctx, msg, fluent!(MUSIC_left_voice_channel));
     } else {
-        reply_message!(ctx, msg, "Not in a voice channel");
+        reply_message!(ctx, msg, fluent!(MUSIC_voice_not_connected));
     }
 
     Ok(())

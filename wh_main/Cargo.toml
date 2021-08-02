@@ -12,6 +12,8 @@ wh_database =   { path = "../wh_database" }
 wh_music =      { path = "../wh_music" }
 wh_points =     { path = "../wh_points" }
 wh_permission = { path = "../wh_permission" }
+fluent_const =  { path = "../fluent_const" }
+
 
 dotenv="0.15.0"
 tokio="1.5.0"

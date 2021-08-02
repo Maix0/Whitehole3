@@ -18,7 +18,7 @@ pub async fn join(ctx: &Context, msg: &Message) -> CommandResult {
 
     let connect_to = match channel_id {
         None => {
-            message_err!("You need to be connected in a voice channel to use this command")
+            message_err!(fluent!(MUSIC_need_voice_channel))
         }
         Some(vc) => vc,
     };
