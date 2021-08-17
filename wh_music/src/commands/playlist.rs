@@ -215,7 +215,7 @@ SELECT count(*) FROM deleted", wh_database::shared::Id(msg.author.id.0)as _, wh_
             for (index, song) in song.iter().enumerate() {
                 let mut text = crate::shared::get_video_name(&song)
                     .await?
-                    .unwrap_or("Unknown".to_string());
+                    .unwrap_or_else(|| "Unknown".to_string());
                 if text.len() > 57 {
                     text = text.chars().take(57).collect::<String>() + "...";
                 }
@@ -338,7 +338,7 @@ SELECT count(*) FROM deleted", wh_database::shared::Id(msg.author.id.0)as _, wh_
         let mut songs = playlist.items;
         if random {
             use rand::seq::SliceRandom;
-            &mut songs[..].shuffle(&mut rand::thread_rng());
+            songs.shuffle(&mut rand::thread_rng());
         }
         for song in songs {
             crate::shared::play_yt_url(call.clone(), song, ctx, msg, false).await?;

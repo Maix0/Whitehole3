@@ -1,0 +1,24 @@
+<svg width="800" height="40" viewBox="0 0 800 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect x="40" width="720" height="40" rx="10" fill="#{role_color}}" />
+    <rect x="40" width="720" height="40" rx="10" fill="url(#paint0_linear)" fill-opacity="0.45" />
+    <circle cx="50" cy="20" r="20" fill="white" />
+    <text fill="black" xml:space="preserve" style="white-space: pre" font-family="Ubuntu Mono" font-size="48"
+        letter-spacing="0.045em">
+        <tspan x="37" y="35.34">{Rank}</tspan>
+    </text>
+    <text fill="#F3C70D" xml:space="preserve" style="white-space: pre" font-family="Ubuntu Mono" font-size="36"
+        letter-spacing="0em">
+        <tspan x="820" y="29.88" text-anchor="end">{Points}</tspan>
+    </text>
+    <text fill="black" xml:space="preserve" style="white-space: pre" font-family="Ubuntu Mono" font-size="36"
+        letter-spacing="0.045em">
+        <tspan x="70" y="32" text-anchor="start">{Username}</tspan>
+    </text>
+    <defs>
+        <linearGradient id="paint0_linear" x1="733" y1="20.0001" x2="12" y2="20" gradientUnits="userSpaceOnUse">
+            <stop />
+            <stop offset="0.0001" />
+            <stop offset="1" stop-opacity="0" />
+        </linearGradient>
+    </defs>
+</svg>

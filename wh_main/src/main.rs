@@ -5,13 +5,14 @@ extern crate wh_core;
 extern crate wh_database;
 extern crate wh_music;
 extern crate wh_points;
+extern crate wh_webserver;
 
 extern crate serenity;
 #[macro_use]
 extern crate log;
-extern crate chrono;
 extern crate dotenv;
 extern crate fern;
+extern crate rocket;
 extern crate tokio;
 
 struct WhEventHandler;
@@ -88,7 +89,7 @@ fn logger_setup() -> Result<(), Box<dyn std::error::Error>> {
         .apply()?)
 }
 
-#[tokio::main(flavor = "multi_thread", worker_threads = 16)]
+#[rocket::main]
 async fn main() {
     dotenv::dotenv().ok();
     logger_setup().expect("Error when setting up logger");
@@ -196,22 +197,29 @@ async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
     let mut client = serenity::client::Client::builder(std::env::var("WH_DISCORD_BOT_TOKEN").expect(
         "Please use `WH_DISCORD_BOT_TOKEN` environement variable(or .env) with your bot's TOKEN",
     ))
-    .framework(framework)
-    .event_handler(event_handler)
-    .intents(intent)
-    .type_map(type_map);
+        .framework(framework)
+        .event_handler(event_handler)
+        .intents(intent)
+        .type_map(type_map);
     for module in &modules {
         client = (module.register_builder)(client);
     }
     let client = client.await;
+
     if let Err(e) = client.as_ref() {
         error!("Error when creating client: {}", e);
     }
     let mut client = client.unwrap();
+    let data = client.data.clone();
+    let cache_http = client.cache_and_http.clone();
+    let shard_manager = client.shard_manager.clone();
+    tokio::spawn(async move {
+        wh_webserver::set_webserver(data, cache_http, shard_manager).await;
+    });
     match client.start().await {
         Err(e) => error!("Error when starting client: {}", e),
         Ok(_) => {
-            info!("Starting Client")
+            info!("Shutdown Client")
         }
     };
     Ok(())

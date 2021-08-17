@@ -31,3 +31,17 @@ MUSIC_ARG_query_or_url={cross} You need to provide a valid url or a query!
 MUSIC_LOG_err_pausing=Error when pausing: {"{}"}
 MUSIC_LOG_err_leaving_channel=Error when leaving channel: {"{}"}
 MUSIC_LOG_err_resuming=Error when resuming: {"{}"}
+
+# ########################################################### #
+
+POINTS_LOG_err_query=Error when executing a query: {"{}"}
+
+POINTS_role_exists={cross} This role is already registered!
+POINTS_role_creation=The role has been set!
+POINTS_failed_delete_role={cross} Couldn't delete the role you asked for, maybe it wasn't setup!
+POINTS_success_delete_role=The role has been removed
+POINTS_role_dont_exists={cross} The given role doesn't exists
+
+POINTS_ARG_err_user_missing_mention={cross} You need to mention someone!
+POINTS_ARG_err_role_mention_missing={cross} You need to mention a role!
+POINTS_ARG_err_invalid_number={cross} You need to input a valid number!

@@ -1,0 +1,17 @@
+<svg width="800" height="600" viewBox="0 0 800 600" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Backdrop -->
+    <rect width="800" height="600" fill="#C4C4C4" />
+    <!-- Guild Name Header -->
+    <image href="./Header.svg" x="0" y="0" width="800" height="55"/>
+    <!-- Ranks Items -->
+    <image href="./RankItem.svg" x="0" y="60" width="800" height="40" />
+    <image href="./RankItem.svg" x="0" y="115" width="800" height="40" />
+    <image href="./RankItem.svg" x="0" y="170" width="800" height="40" />
+    <image href="./RankItem.svg" x="0" y="225" width="800" height="40" />
+    <image href="./RankItem.svg" x="0" y="280" width="800" height="40" />
+    <image href="./RankItem.svg" x="0" y="335" width="800" height="40" />
+    <image href="./RankItem.svg" x="0" y="390" width="800" height="40" />
+    <image href="./RankItem.svg" x="0" y="445" width="800" height="40" />
+    <image href="./RankItem.svg" x="0" y="500" width="800" height="40" />
+    <image href="./RankItem.svg" x="0" y="555" width="800" height="40" />
+</svg>

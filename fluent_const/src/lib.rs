@@ -84,7 +84,7 @@ pub fn fluent(token: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 .format_pattern(value, None, &mut err),
         )
     } else {
-        return quote!(compile_error!("fluent-const doesn't support patterns")).into();
+        return quote!(compile_error!("fluent_const doesn't support patterns")).into();
     };
     let message = message.unwrap();
     quote!(#message).into()

@@ -28,6 +28,10 @@ pub mod module {
         .await
         .expect("Error when connection to database");
 
+        sqlx::migrate!("../migrations")
+            .run(&db)
+            .await
+            .expect("Error when runnings migrations");
         tm.insert::<crate::shared::DatabaseKey>(db);
     }
 
