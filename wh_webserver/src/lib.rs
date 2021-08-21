@@ -10,6 +10,7 @@ extern crate base64;
 extern crate reqwest;
 extern crate resvg;
 extern crate tiny_skia;
+extern crate url;
 extern crate urlencoding;
 extern crate usvg;
 
@@ -25,7 +26,10 @@ pub type Data = Arc<RwLock<TypeMap>>;
 pub type CacheHttp = Arc<serenity::CacheAndHttp>;
 pub type ShardManager = Arc<tokio::sync::Mutex<serenity::client::bridge::gateway::ShardManager>>;
 pub async fn set_webserver(typemap: Data, cache_http: CacheHttp, shard: ShardManager) {
-    let res = rocket::build()
+    let mut config = rocket::config::Config::default();
+    config.secret_key = rocket::config::SecretKey::from(&include_bytes!("secretkey")[..]);
+    config.port = 9955;
+    let res = rocket::custom(config)
         .manage(typemap)
         .manage(cache_http)
         .mount("/api", api::routes())

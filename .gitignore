@@ -6,3 +6,4 @@ start_pg.bat
 /.vscode
 whitehole3.sql
 db.sh
+secretkey

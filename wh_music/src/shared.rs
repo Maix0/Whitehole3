@@ -52,20 +52,19 @@ pub enum SongType {
 impl SongUrl {
     pub fn from_url(url: url::Url) -> Self {
         match url.scheme() {
-            "spotify" => {
-                return Self::Spotify(url);
-            }
-            _ => {}
-        };
-        match url.host() {
-            Some(url::Host::Domain(u)) => match u {
-                "youtube.com" | "youtu.be" | "www.youtube.com" | "www.youtu.be" => match url.path()
-                {
-                    "/watch" => Self::YoutubeVideo(url),
-                    "/playlist" => Self::YoutubePlaylist(url),
+            "spotify" => Self::Spotify(url),
+            "http" | "https" => match url.host() {
+                Some(url::Host::Domain(u)) => match u {
+                    "youtube.com" | "youtu.be" | "www.youtube.com" | "www.youtu.be" => {
+                        match url.path() {
+                            "/watch" => Self::YoutubeVideo(url),
+                            "/playlist" => Self::YoutubePlaylist(url),
+                            _ => Self::Query(url.to_string()),
+                        }
+                    }
+                    "spotify.com" | "open.spotify.com" => Self::Spotify(url),
                     _ => Self::Query(url.to_string()),
                 },
-                "spotify.com" | "open.spotify.com" => Self::Spotify(url),
                 _ => Self::Query(url.to_string()),
             },
             _ => Self::Query(url.to_string()),

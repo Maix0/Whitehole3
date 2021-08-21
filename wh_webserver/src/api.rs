@@ -1,9 +1,12 @@
-use rocket::{http::ContentType, Route, State};
+use rocket::{
+    http::{ContentType, Status},
+    Route, State,
+};
 use serenity::model::id::{GuildId, RoleId, UserId};
 
 use crate::{CacheHttp, Data};
-fn to_string<T: std::error::Error>(x: T) -> String {
-    x.to_string()
+fn to_string<T: std::error::Error>(x: T) -> (Status, String) {
+    (Status::InternalServerError, x.to_string())
 }
 
 #[get("/leaderbord/<guildid>?<page>")]
@@ -12,8 +15,7 @@ async fn get_leaderbord(
     data: &State<Data>,
     page: Option<u16>,
     guildid: u64,
-) -> Result<(ContentType, Vec<u8>), String> {
-    use serenity::futures::StreamExt;
+) -> Result<(ContentType, Vec<u8>), (Status, String)> {
     let lock = data.read().await;
     let db = lock.get::<wh_database::shared::DatabaseKey>().unwrap();
     let page = page.unwrap_or(1);
@@ -28,14 +30,12 @@ async fn get_leaderbord(
         wh_database::shared::Id(guildid) as _,
         ((page - 1) * 10) as i32
     )
-    .fetch(db)
-    .map(|e| e.map(|e| (unsafe { std::mem::transmute::<_, u64>(e.userid) }, e.points)))
-    .collect::<Vec<_>>()
-    .await;
-
+    .fetch_all(db)
+    .await
+    .map_err(to_string)?;
     let mut pairs: Vec<(u64, i64)> = Vec::with_capacity(res.len());
     for re in res {
-        pairs.push(re.map_err(to_string)?);
+        pairs.push((unsafe { std::mem::transmute(re.userid) }, re.points));
     }
     let mut pairs_iter = pairs.iter().enumerate();
 
@@ -47,10 +47,10 @@ async fn get_leaderbord(
         ",
         wh_database::shared::Id(guildid) as _
     )
-    .fetch(db)
-    .map(|e| e.map(|d| (unsafe { std::mem::transmute::<_, u64>(d.roleid) }, d.points)))
-    .collect::<Vec<_>>()
-    .await;
+    .fetch_all(db)
+    .await
+    .map_err(to_string)?;
+
     let mut role_pairs = Vec::<(u64, i64, u32)>::with_capacity(res.len());
 
     let roles = GuildId(guildid)
@@ -58,7 +58,7 @@ async fn get_leaderbord(
         .await
         .map_err(to_string)?;
     for re in res {
-        let (roleid, points) = re.map_err(to_string)?;
+        let (roleid, points) = (unsafe { std::mem::transmute(re.roleid) }, re.points);
         let color = roles
             .get(&RoleId(roleid))
             .map(|r| r.colour.0)
@@ -167,7 +167,7 @@ async fn get_rank(
     data: &State<Data>,
     guildid: u64,
     userid: u64,
-) -> Result<(ContentType, Vec<u8>), String> {
+) -> Result<(ContentType, Vec<u8>), (Status, String)> {
     let lock = data.read().await;
     let db = lock.get::<wh_database::shared::DatabaseKey>().unwrap();
 
@@ -226,8 +226,15 @@ async fn get_rank(
         .map_err(to_string)?;
     let req = reqwest::get({
         let mut url = user.face();
-        let idx = url.find("webp").unwrap();
-        url.replace_range(idx.., "png?size=256");
+        debug!("face: {}", url);
+        let idx = url.find("webp");
+        match idx {
+            Some(idx) => url.replace_range(idx.., "png?size=256"),
+            None => {
+                let idx = url.find("gif").unwrap();
+                url.replace_range(idx.., "png?size=256")
+            }
+        }
 
         url
     })

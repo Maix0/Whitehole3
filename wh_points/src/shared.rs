@@ -1,3 +1,8 @@
+pub static BASE_URL: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(|| {
+    dotenv::dotenv().expect("Error with dotenv");
+    std::env::var("WH_WEB_SERVER").expect("You need to provide the WH_WEB_SERVER env variable")
+});
+
 use serenity::{
     client::Context,
     framework::standard::CommandResult,

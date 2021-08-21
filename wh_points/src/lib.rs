@@ -10,6 +10,9 @@ extern crate wh_database;
 extern crate wh_permission;
 #[macro_use]
 extern crate fluent_const;
+extern crate dotenv;
+extern crate once_cell;
+extern crate reqwest;
 
 mod commands;
 mod event_handler;
