@@ -18,7 +18,7 @@ async fn get_leaderbord(
 ) -> Result<(ContentType, Vec<u8>), (Status, String)> {
     let lock = data.read().await;
     let db = lock.get::<wh_database::shared::DatabaseKey>().unwrap();
-    let page = page.unwrap_or(1);
+    let page = page.unwrap_or(1).max(1);
     let res = query!(
         "
         SELECT userid, points FROM user_points
@@ -90,9 +90,8 @@ async fn get_leaderbord(
     );
     let mut fontdb = usvg::fontdb::Database::new();
 
-    fontdb
-        .load_font_file("wh_webserver/font/UbuntuMono-R.ttf")
-        .map_err(to_string)?;
+    fontdb.load_fonts_dir("wh_webserver/font");
+    fontdb.load_system_fonts();
 
     let svg = usvg::Tree::from_str(
         leaderboard.as_str(),
@@ -118,7 +117,26 @@ async fn generate_rank_item<'a>(
     if let Some((sub_rank, pair)) = iter.next() {
         format!(
             include_str!("svg/rankitem.svg"),
-            rank = (sub_rank + page as usize),
+            rank = (sub_rank + (page - 1) as usize * 10) + 1,
+            rank_font_size = if (sub_rank + (page - 1) as usize * 10) + 1 < 10 {
+                48
+            } else if (sub_rank + (page - 1) as usize * 10) + 1 < 100 {
+                36
+            } else {
+                24
+            },
+            rank_y = if (sub_rank + (page - 1) as usize * 10) + 1 < 10 {
+                35.34
+            } else if (sub_rank + (page - 1) as usize * 10) + 1 < 100 {
+                31.38
+            } else {
+                27.42
+            },
+            rank_x = if (sub_rank + (page - 1) as usize * 10) + 1 < 10 {
+                37.0
+            } else {
+                30.5
+            },
             points = pair.1,
             username = UserId(pair.0)
                 .to_user(http)
@@ -128,7 +146,7 @@ async fn generate_rank_item<'a>(
             circle_color = match (page, sub_rank) {
                 (1, 0) => "ffdb58",
                 (1, 1) => "aaa9ad",
-                (1, 3) => "cd7f32",
+                (1, 2) => "cd7f32",
                 _ => "ffffff",
             },
             y = match sub_rank {

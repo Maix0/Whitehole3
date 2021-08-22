@@ -2,9 +2,9 @@
     <rect x="40" width="720" height="40" rx="10" fill="#{role_color}" />
     <rect x="40" width="720" height="40" rx="10" fill="url(#paint0_linear)" fill-opacity="0.45" />
     <circle cx="50" cy="20" r="20" fill="#{circle_color}" />
-    <text fill="black" xml:space="preserve" style="white-space: pre" font-family="Ubuntu Mono" font-size="48"
+    <text fill="black" xml:space="preserve" style="white-space: pre" font-family="Ubuntu Mono" font-size="{rank_font_size}"
         letter-spacing="0.045em">
-        <tspan x="37" y="35.34">{rank}</tspan>
+        <tspan x="{rank_x}" y="{rank_y}">{rank}</tspan>
     </text>
     <text fill="#F3C70D" xml:space="preserve" style="white-space: pre" font-family="Ubuntu Mono" font-size="36"
         letter-spacing="0em">
