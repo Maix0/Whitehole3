@@ -16,8 +16,6 @@ wh_database = {path = "../wh_database" }
 tiny-skia = "0.5.1"
 reqwest = "0.11.4"
 base64 = "0.13.0"
-urlencoding = "2.1.0"
-url = "2.2.2"
 
 [dependencies.sqlx]
 default-features = false

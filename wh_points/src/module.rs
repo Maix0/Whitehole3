@@ -1,6 +1,9 @@
 pub static MODULE_DECLARATION: wh_core::ModuleDeclaration = wh_core::ModuleDeclaration {
     module_name: "Points",
-    command_groups: &[&crate::commands::POINTSMANAGE_GROUP],
+    command_groups: &[
+        &crate::commands::POINTSMANAGE_GROUP,
+        &crate::commands::POINTS_GROUP,
+    ],
     register_typemap: |t| Box::pin(register_typemap(t)),
     register_event_handler: |e| Box::pin(register_event_handler(e)),
     register_builder,

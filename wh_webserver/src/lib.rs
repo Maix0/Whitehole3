@@ -10,8 +10,6 @@ extern crate base64;
 extern crate reqwest;
 extern crate resvg;
 extern crate tiny_skia;
-extern crate url;
-extern crate urlencoding;
 extern crate usvg;
 
 use rocket::tokio;
