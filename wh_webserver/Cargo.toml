@@ -7,21 +7,26 @@ edition = "2018"
 
 [dependencies]
 log = "0.4.14"
-resvg = "0.15.0"
-serenity = "0.10.8"
-usvg = "0.15.0"
+resvg = "0.16.0"
+usvg = "0.16.0"
+dotenv = "0.15.0"
 
 wh_core = { path = "../wh_core" }
 wh_database = {path = "../wh_database" }
-tiny-skia = "0.5.1"
+tiny-skia = "0.6.0"
 reqwest = "0.11.4"
 base64 = "0.13.0"
 
 [dependencies.sqlx]
 default-features = false
-features = ["postgres", "runtime-tokio-rustls", "chrono", "macros"]
+features = ["postgres", "runtime-tokio-rustls", "macros"]
 version = "0.5.2"
 
 [dependencies.rocket]
 version="0.5.0-rc.1"
 features=["secrets"]
+
+[dependencies.serenity]
+default-features = false
+features = ["cache", "http", "model", "rustls_backend"]
+version = "0.10.5"

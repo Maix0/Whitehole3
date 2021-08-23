@@ -9,3 +9,4 @@ members=[
     "wh_webserver",
     "fluent_const"
 ]
+resolver = "2" 

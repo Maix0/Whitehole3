@@ -17,7 +17,7 @@ version = "0.6.0"
 
 [dependencies.serenity]
 default-features = false
-features = ["voice", "gateway", "builder", "cache", "framework", "http", "model", "utils", "standard_framework", "rustls_backend"]
+features = ["cache", "http", "model", "rustls_backend"]
 version = "0.10.5"
 
 

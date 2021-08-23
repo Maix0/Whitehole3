@@ -7,6 +7,7 @@ use serenity::{client::Context, framework::standard::Args};
 
 #[command]
 #[only_in(guilds)]
+#[aliases("q")]
 #[min_args(0)]
 #[max_args(1)]
 #[usage("[page?]")]

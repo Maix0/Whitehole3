@@ -3,6 +3,7 @@ use serenity::model::channel::Message;
 use serenity::{client::Context, framework::standard::Args};
 #[command]
 #[only_in(guilds)]
+#[aliases("p")]
 #[usage("[query or url]")]
 #[example("https://www.youtube.com/watch?v=dQw4w9WgXcQ")]
 #[min_args(1)]

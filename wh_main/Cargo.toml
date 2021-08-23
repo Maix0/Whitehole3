@@ -12,7 +12,6 @@ wh_database =   { path = "../wh_database" }
 wh_music =      { path = "../wh_music" }
 wh_points =     { path = "../wh_points" }
 wh_permission = { path = "../wh_permission" }
-wh_webserver =  { path = "../wh_webserver" }
 fluent_const =  { path = "../fluent_const" }
 
 

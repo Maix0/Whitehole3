@@ -8,13 +8,16 @@ edition = "2018"
 
 
 [dependencies]
-serenity="0.10.5"
-chrono = "0.4.19"
 log="0.4.14"
 wh_core={path="../wh_core"}
 
 
 [dependencies.sqlx]
 default-features = false
-features = ["postgres", "runtime-tokio-rustls", "chrono", "macros", "migrate"]
+features = ["postgres", "runtime-tokio-rustls", "macros", "migrate"]
 version = "0.5.2"
+
+[dependencies.serenity]
+default-features = false
+features = ["cache", "http", "model", "rustls_backend"]
+version = "0.10.5"

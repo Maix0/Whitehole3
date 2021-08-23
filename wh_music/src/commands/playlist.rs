@@ -5,6 +5,7 @@ use serenity::prelude::Context;
 #[command]
 #[only_in(guilds)]
 #[sub_commands(add, remove, new, delete, view, list, play)]
+/// This command does nothing on its own, must use the subcommands add, remove, view, list, delete
 async fn playlist(_: &Context, _: &Message) -> CommandResult {
     Ok(())
 }
@@ -49,7 +50,6 @@ mod playlist_cmd {
                     .arg(format!("ytsearch:{}", q))
                     .stdin(Stdio::null())
                     .stdout(Stdio::piped());
-
                 let output = command.output()?;
                 if output.stdout.is_empty() {
                     message_err!(format!(fluent!(MUSIC_not_found_video), q));

@@ -5,7 +5,6 @@ extern crate wh_core;
 extern crate wh_database;
 extern crate wh_music;
 extern crate wh_points;
-extern crate wh_webserver;
 
 extern crate serenity;
 #[macro_use]
@@ -210,12 +209,6 @@ async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
         error!("Error when creating client: {}", e);
     }
     let mut client = client.unwrap();
-    let data = client.data.clone();
-    let cache_http = client.cache_and_http.clone();
-    let shard_manager = client.shard_manager.clone();
-    tokio::spawn(async move {
-        wh_webserver::set_webserver(data, cache_http, shard_manager).await;
-    });
     match client.start().await {
         Err(e) => error!("Error when starting client: {}", e),
         Ok(_) => {

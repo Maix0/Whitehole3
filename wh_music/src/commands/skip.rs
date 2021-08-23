@@ -3,6 +3,7 @@ use serenity::framework::standard::{macros::*, CommandResult};
 use serenity::model::channel::Message;
 
 #[command]
+#[aliases("s")]
 #[only_in(guilds)]
 pub async fn skip(ctx: &Context, msg: &Message) -> CommandResult {
     let sb = songbird::get(ctx).await.unwrap();

@@ -98,7 +98,8 @@ async fn get_leaderbord(
         &usvg::Options {
             fontdb,
             ..Default::default()
-        },
+        }
+        .to_ref(),
     )
     .map_err(to_string)?;
 
@@ -285,7 +286,8 @@ async fn get_rank(
         &usvg::Options {
             fontdb,
             ..Default::default()
-        },
+        }
+        .to_ref(),
     )
     .map_err(to_string)?;
 
