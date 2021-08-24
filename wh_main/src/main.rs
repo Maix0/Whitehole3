@@ -168,14 +168,14 @@ async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     modules!(modules, wh_database, wh_music, wh_points, wh_permission);
-
     let mut framework = serenity::framework::StandardFramework::new()
         .help(&wh_core::HELP_COMMAND)
         .after(after_hook)
         .on_dispatch_error(error_hook)
         .configure(|c| {
             c.prefix("wh?");
-            c.allow_dm(false)
+            c.allow_dm(false);
+            c.case_insensitivity(true)
         });
 
     let mut event_handler = wh_core::event_handler::WhEventHandlerManager::new();

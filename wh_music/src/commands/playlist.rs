@@ -17,13 +17,17 @@ mod playlist_cmd {
 
     #[command]
     #[only_in(guilds)]
+    #[usage("[name] [query or url]")]
+    #[example("\"meme music\" never gonna give you up")]
+    #[min_args(2)]
+    /// Add a music to a playlist
     async fn add(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let name = args.single_quoted::<String>();
         if name.is_err() {
             message_err!(fluent!(MUSIC_ARG_playlist_name))
         }
         let name = name.unwrap();
-        let url = args.parse::<url::Url>();
+        let url = url::Url::parse(args.remains().unwrap_or(""));
         let song_url = match url {
             Ok(url) => crate::shared::SongUrl::from_url(url),
             Err(_) => crate::shared::SongUrl::Query(args.remains().unwrap_or("").to_string()),
@@ -79,7 +83,7 @@ mod playlist_cmd {
         let lock = ctx.data.read().await;
         let db = lock.get::<wh_database::shared::DatabaseKey>().unwrap();
 
-        query!("UPDATE user_playlist SET items = array_distinct(array_cat(items, $3::text[])) WHERE name = $1::varchar(32) AND guildid = $2::int8;", 
+        query!("UPDATE user_playlist SET items = array_distinct(array_cat(items, $3::text[])) WHERE name = UPPER($1::varchar(32)) AND guildid = $2::int8;", 
         name, wh_database::shared::Id(msg.guild_id.unwrap().0) as _, &urls).execute(db).await?;
         reply_message!(
             ctx,
@@ -97,6 +101,10 @@ mod playlist_cmd {
 
     #[command]
     #[only_in(guilds)]
+    #[usage("[name] [index]")]
+    #[example("memes 1")]
+    #[num_args(2)]
+    /// Remove the music at the given index for the given playlist
     async fn remove(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let name = args.single_quoted::<String>();
         if name.is_err() {
@@ -128,7 +136,7 @@ mod playlist_cmd {
         let lock = ctx.data.read().await;
         let db = lock.get::<wh_database::shared::DatabaseKey>().unwrap();
 
-        let res = query!("UPDATE user_playlist SET items = array_distinct(array_diff(items, $3::text[])) WHERE guildid = $1::int8 AND name = $2::varchar(32)",
+        let res = query!("UPDATE user_playlist SET items = array_distinct(array_diff(items, $3::text[])) WHERE guildid = $1::int8 AND name = UPPER($2::varchar(32))",
             wh_database::shared::Id(msg.guild_id.unwrap().0) as _, name, &[playlist.items[index as usize - 1].as_str()][..] as _
         ).execute(db).await?;
 
@@ -140,8 +148,10 @@ mod playlist_cmd {
 
     #[command]
     #[only_in(guilds)]
-    #[example("metal")]
-    #[usage("[playlist name]")]
+    #[example("memes")]
+    #[usage("[name]")]
+    #[num_args(1)]
+    /// Create a new playlist. The name must be 32 character long or shorter and if it include space wrap it inside double quotes
     async fn new(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let name = args.single_quoted::<String>();
         if name.is_err() {
@@ -168,6 +178,10 @@ mod playlist_cmd {
 
     #[command]
     #[only_in(guilds)]
+    #[num_args(1)]
+    #[example("memes")]
+    #[usage("[name]")]
+    /// Delete the playlist. You must be the owner of said playlist
     async fn delete(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let name = args.single_quoted::<String>();
         if name.is_err() {
@@ -178,7 +192,7 @@ mod playlist_cmd {
         let name = name.unwrap();
         let res = query!("
 WITH deleted AS 
-    (DELETE FROM user_playlist WHERE userid = $1::int8 AND guildid = $2::int8 AND name = $3::varchar(32) RETURNING *) 
+    (DELETE FROM user_playlist WHERE userid = $1::int8 AND guildid = $2::int8 AND name = UPPER($3::varchar(32)) RETURNING *) 
 SELECT count(*) FROM deleted", wh_database::shared::Id(msg.author.id.0)as _, wh_database::shared::Id(msg.guild_id.unwrap().0) as _, name ).fetch_one(db).await?;
         if res.count == Some(0) {
             message_err!(fluent!(MUSIC_playlist_failed_delete))
@@ -190,6 +204,11 @@ SELECT count(*) FROM deleted", wh_database::shared::Id(msg.author.id.0)as _, wh_
 
     #[command]
     #[only_in(guilds)]
+    #[min_args(1)]
+    #[max_args(2)]
+    #[usage("[name] [?page]")]
+    #[example("memes 2")]
+    /// View the playlist items at the given page (default to page 1 if not specified)
     async fn view(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         use serenity::builder::{CreateEmbed, CreateMessage};
         let name = args.single_quoted::<String>();
@@ -243,6 +262,10 @@ SELECT count(*) FROM deleted", wh_database::shared::Id(msg.author.id.0)as _, wh_
 
     #[command]
     #[only_in(guilds)]
+    #[max_args(1)]
+    #[usage("[?page]")]
+    #[example("2")]
+    /// View the all the guild's playlist
     async fn list(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let page_num = args.single::<u16>().unwrap_or(0);
         let playlists = crate::shared::get_all_playlist(ctx, msg.guild_id.unwrap().0).await?;
@@ -287,6 +310,12 @@ SELECT count(*) FROM deleted", wh_database::shared::Id(msg.author.id.0)as _, wh_
 
     #[command]
     #[only_in(guilds)]
+    #[max_args(2)]
+    #[min_args(1)]
+    #[usage("[name] [shuffle]")]
+    #[example("memes true")]
+    /// Add the playlist to the queue
+    /// The last argument is specifying if the playlist is shuffle before adding it to the queue (true => shuffled; false => not shuffled)
     pub async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let name = args.single_quoted::<String>();
         if name.is_err() {

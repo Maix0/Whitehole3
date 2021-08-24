@@ -8,7 +8,14 @@ use role_cmd::ROLE_COMMAND;
 #[command]
 #[only_in(guilds)]
 #[sub_commands(add, remove, set, role)]
-pub async fn points(_: &Context, _: &Message) -> CommandResult {
+/// The top level command used to manage users and roles points
+pub async fn points(ctx: &Context, msg: &Message) -> CommandResult {
+    reply_message!(
+        ctx,
+        msg,
+        "This command is divided into differents subcommands: `add`, `remove`, `set` and `role`"
+    );
+
     Ok(())
 }
 
@@ -19,6 +26,10 @@ mod points_cmd {
 
     #[command]
     #[only_in(guilds)]
+    #[usage("[@user] [points]")]
+    #[example("@-|Maix| 20")]
+    #[num_args(2)]
+    /// Add `points` points to the mentioned user
     pub async fn add(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let user = msg.mentions.first();
         if user.is_none() {
@@ -46,6 +57,10 @@ mod points_cmd {
 
     #[command]
     #[only_in(guilds)]
+    #[usage("[@user] [points]")]
+    #[example("@-|Maix| 20")]
+    #[num_args(2)]
+    /// Remove `points` points of the mentioned user
     pub async fn remove(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let user = msg.mentions.first();
         if user.is_none() {
@@ -73,6 +88,10 @@ mod points_cmd {
 
     #[command]
     #[only_in(guilds)]
+    #[usage("[@user] [points]")]
+    #[example("@-|Maix| 20")]
+    #[num_args(2)]
+    /// Set the mentioned user points to `points`
     pub async fn set(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let user = msg.mentions.first();
         if user.is_none() {
@@ -108,12 +127,22 @@ mod role_cmd {
     #[command]
     #[only_in(guilds)]
     #[sub_commands(new, set, remove)]
-    pub async fn role(_: &Context, _: &Message) -> CommandResult {
+    /// The top level command used to manage the roles points
+    pub async fn role(ctx: &Context, msg: &Message) -> CommandResult {
+        reply_message!(
+            ctx,
+            msg,
+            "This command is divided into differents subcommands: `new`, `set` and `remove`"
+        );
         Ok(())
     }
 
     #[command]
     #[only_in(guilds)]
+    #[usage("@role points")]
+    #[example("@role 20")]
+    #[num_args(2)]
+    /// Create a new role that will be given when the users get to `points` points
     pub async fn new(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let role = msg.mention_roles.first();
         if role.is_none() {
@@ -144,6 +173,10 @@ mod role_cmd {
 
     #[command]
     #[only_in(guilds)]
+    #[usage("@role points")]
+    #[example("@role 20")]
+    #[num_args(2)]
+    /// Set the points requierment for a role that has been created
     pub async fn set(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let role = msg.mention_roles.first();
         if role.is_none() {
@@ -168,6 +201,10 @@ mod role_cmd {
 
     #[command]
     #[only_in(guilds)]
+    #[usage("@role")]
+    #[example("@role")]
+    #[num_args(1)]
+    /// Remove the points requirement from a role
     pub async fn remove(ctx: &Context, msg: &Message) -> CommandResult {
         let role = msg.mention_roles.first();
         if role.is_none() {

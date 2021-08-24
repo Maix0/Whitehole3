@@ -4,6 +4,7 @@ use serenity::model::channel::Message;
 
 #[command]
 #[only_in(guilds)]
+/// Resume the music played by the bot
 pub async fn resume(ctx: &Context, msg: &Message) -> CommandResult {
     let sb = songbird::get(ctx).await.unwrap();
     let call_opt = sb.get(msg.guild_id.unwrap());

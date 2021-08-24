@@ -9,7 +9,7 @@ fn to_string<T: std::error::Error>(x: T) -> (Status, String) {
     (Status::InternalServerError, x.to_string())
 }
 
-#[get("/leaderbord/<guildid>?<page>")]
+#[get("/leaderboard/<guildid>?<page>")]
 async fn get_leaderbord(
     cachehttp: &State<CacheHttp>,
     data: &State<Data>,

@@ -5,6 +5,7 @@ use serenity::model::channel::Message;
 #[command]
 #[aliases("s")]
 #[only_in(guilds)]
+/// Skipped the current song
 pub async fn skip(ctx: &Context, msg: &Message) -> CommandResult {
     let sb = songbird::get(ctx).await.unwrap();
     let call_opt = sb.get(msg.guild_id.unwrap());

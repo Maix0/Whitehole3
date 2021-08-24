@@ -20,7 +20,6 @@ pub async fn remove(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     if index == 0 {
         message_err!(fluent!(MUSIC_ARG_invalid_number));
     }
-    let index = index - 1;
     let channel_id = guild
         .voice_states
         .get(&msg.author.id)

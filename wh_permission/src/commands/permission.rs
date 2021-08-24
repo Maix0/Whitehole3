@@ -7,6 +7,7 @@ use role::ROLE_COMMAND;
 #[command]
 #[only_in(guilds)]
 #[sub_commands(grant, remove, view, role, list)]
+/// This is a top level command that manages roles' and users' permissions
 pub async fn permission(ctx: &Context, msg: &Message) -> CommandResult {
     reply_message!(
         ctx,
@@ -20,6 +21,7 @@ pub async fn permission(ctx: &Context, msg: &Message) -> CommandResult {
 #[only_in(guilds)]
 #[usage("")]
 #[example("")]
+/// List all valid permissions
 pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
     let perms = crate::shared::user_permission::static_get_permission();
     reply_message!(
@@ -39,6 +41,7 @@ pub async fn list(ctx: &Context, msg: &Message) -> CommandResult {
 #[only_in(guilds)]
 #[usage("[@user] [permission]")]
 #[example("@-|Maix|#1010 permission.manage")]
+/// This grant the given permission the the mentioned user
 pub async fn grant(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let user_mention = msg.mentions.first();
     if user_mention.is_none() {
@@ -98,6 +101,7 @@ pub async fn grant(ctx: &Context, msg: &Message, mut args: Args) -> CommandResul
 #[only_in(guilds)]
 #[usage("[@user] [permission]")]
 #[example("@-|Maix|#1010 permission.manage")]
+/// This remove the given permission from the user
 pub async fn remove(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let user_mention = msg.mentions.first();
     if user_mention.is_none() {
@@ -160,6 +164,7 @@ pub async fn remove(ctx: &Context, msg: &Message, mut args: Args) -> CommandResu
 #[example("@-|Maix|#1010")]
 #[min_args(0)]
 #[max_args(1)]
+/// This view all the permission that are granted to a user (not showing role given permission)
 pub async fn view(ctx: &Context, msg: &Message) -> CommandResult {
     let usr_mention = msg.mentions.first().unwrap_or(&msg.author);
     crate::shared::user_permission::create_permission_if_not_exists(
@@ -199,6 +204,7 @@ mod role {
 
     #[command]
     #[sub_commands(grant, remove, view)]
+    /// This is a top level command that manage roles' permissions
     pub async fn role(ctx: &Context, msg: &Message) -> CommandResult {
         reply_message!(
             ctx,
@@ -213,6 +219,7 @@ mod role {
     #[usage("[@role] [permission]")]
     #[example("@role permission.manage")]
     #[num_args(2)]
+    /// This grant a permission to the mentioned role
     pub async fn grant(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let role_mention = msg.mention_roles.first();
         if role_mention.is_none() {
@@ -273,6 +280,7 @@ mod role {
     #[usage("[@role] [permission]")]
     #[example("@role permission.manage")]
     #[num_args(2)]
+    /// This remove the given permission from the mentioned role
     pub async fn remove(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
         let role_mention = msg.mention_roles.first();
         if role_mention.is_none() {
@@ -333,6 +341,7 @@ mod role {
     #[usage("[@role]")]
     #[example("@role")]
     #[num_args(1)]
+    /// This list the permssions a role have
     pub async fn view(ctx: &Context, msg: &Message) -> CommandResult {
         let role_mention = msg.mention_roles.first();
         if role_mention.is_none() {

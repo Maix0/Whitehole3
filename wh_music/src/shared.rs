@@ -464,7 +464,7 @@ pub async fn get_playlist(
     let db = lock.get::<DatabaseKey>().unwrap();
     query_as!(
         PlaylistRaw,
-        "SELECT * FROM user_playlist WHERE guildid = $1::int8 AND name = $2::varchar(32)",
+        "SELECT * FROM user_playlist WHERE guildid = $1::int8 AND name = UPPER($2::varchar(32))",
         Id(guildid) as _,
         name
     )

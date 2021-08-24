@@ -27,7 +27,10 @@ pub type CacheHttp = Arc<serenity::CacheAndHttp>;
 pub async fn run_webserver(typemap: Data, cache_http: CacheHttp) {
     let mut config = rocket::config::Config::default();
     config.secret_key = rocket::config::SecretKey::from(&include_bytes!("secretkey")[..]);
-    config.port = 9955;
+    config.port = std::env::var("WH_WEB_SERVER_PORT")
+        .expect("You must provide the WH_WEB_SERVER_PORT environment variable")
+        .parse()
+        .expect("WH_WEB_SERVER_PORT must be a valid port number");
     let res = rocket::custom(config)
         .manage(typemap)
         .manage(cache_http)
@@ -78,6 +81,6 @@ async fn main() {
         .await
         .insert::<wh_database::shared::DatabaseKey>(db);
     info!("starting");
-    
+
     run_webserver(typemap, cache_http).await;
 }
