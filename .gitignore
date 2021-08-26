@@ -7,3 +7,5 @@ start_pg.bat
 whitehole3.sql
 db.sh
 secretkey
+images/
+svg/raw

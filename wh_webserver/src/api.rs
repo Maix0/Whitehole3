@@ -251,7 +251,7 @@ async fn get_rank(
             Some(idx) => url.replace_range(idx.., "png?size=256"),
             None => {
                 let idx = url.find("gif").unwrap();
-                url.replace_range(idx.., "png?size=256")
+                url.replace_range(idx.., "png?size=128")
             }
         }
 
@@ -272,29 +272,51 @@ async fn get_rank(
         current = current,
         width = width,
         username = user.tag(),
-        img = url
+        img = url,
+        background_image = {
+            let path_str = format!(
+                "{base}/images/rank/{guild}_{user}.png",
+                base = std::env::var("WH_BASE_FS").expect("You need to provide WH_BASE_FS"),
+                guild = guildid,
+                user = userid
+            );
+            let path = &std::path::Path::new(path_str.as_str());
+            if path.exists() {
+                let mut data = String::from("data:image/png;base64,");
+                let img_data = rocket::tokio::spawn(async move { std::fs::read(&path_str) })
+                    .await
+                    .unwrap()
+                    .map_err(to_string)?;
+                base64::encode_config_buf(&img_data, base64::STANDARD, &mut data);
+
+                data
+            } else {
+                String::new()
+            }
+        }
     );
 
     let mut fontdb = usvg::fontdb::Database::new();
 
-    fontdb
-        .load_font_file("wh_webserver/font/UbuntuMono-R.ttf")
-        .map_err(to_string)?;
+    fontdb.load_fonts_dir("wh_webserver/font");
 
-    let svg = usvg::Tree::from_str(
-        data.as_str(),
-        &usvg::Options {
-            fontdb,
-            ..Default::default()
-        }
-        .to_ref(),
-    )
-    .map_err(to_string)?;
-
-    let mut pixmap = tiny_skia::Pixmap::new(500, 200).unwrap();
-
-    resvg::render(&svg, usvg::FitTo::Original, pixmap.as_mut());
-    //Ok((ContentType::SVG, data.into_bytes()))
+    // return Ok((ContentType::SVG, data.into_bytes()));
+    let pixmap = rocket::tokio::spawn(async move {
+        let svg = usvg::Tree::from_str(
+            data.as_str(),
+            &usvg::Options {
+                fontdb,
+                ..Default::default()
+            }
+            .to_ref(),
+        )
+        .expect("Error when creating tree");
+        let mut pixmap = tiny_skia::Pixmap::new(500, 200).unwrap();
+        resvg::render(&svg, usvg::FitTo::Original, pixmap.as_mut());
+        pixmap
+    })
+    .await
+    .unwrap();
     Ok((ContentType::PNG, pixmap.encode_png().map_err(to_string)?))
 }
 

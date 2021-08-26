@@ -7,5 +7,6 @@ members=[
     "wh_points",
     "wh_permission",
     "wh_webserver",
+    "wh_options",
     "fluent_const"
 ]

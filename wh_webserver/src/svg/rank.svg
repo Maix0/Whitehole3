@@ -1,6 +1,6 @@
 <svg width="500" height="200" viewBox="0 0 500 200" fill="none" xmlns="http://www.w3.org/2000/svg"
     xmlns:xlink="http://www.w3.org/1999/xlink">
-    <rect width="500" height="200" rx="33" fill="#C4C4C4" />
+    <rect id="background" width="500" height="200" rx="33" fill="url(#pattern1)" />
     <circle cx="60" cy="61" r="50" fill="#1E1E1E" />
     <circle cx="60" cy="61" r="50" fill="url(#pattern0)" />
     <path
@@ -28,9 +28,15 @@
         <tspan x="220" y="135.9" text-anchor="end">{current}</tspan>
     </text>
     <defs>
-        <pattern id="pattern0" patternContentUnits="objectBoundingBox" width="1" height="1">
-            <use xlink:href="#image0" transform="scale(0.00208333)" />
+        <pattern id="pattern1" width="1" height="1">
+            <use xlink:href="#image1" />
         </pattern>
-        <image id="image0" width="480" height="480" xlink:href="{img}" />
+        <image id="image1" xlink:href="{background_image}" width="500" height="200" />
+
+        <pattern id="pattern0" width="1" height="1">
+            <use xlink:href="#image0" />
+        </pattern>
+        <image id="image0" width="100" height="100" xlink:href="{img}" />
+        
     </defs>
 </svg>
