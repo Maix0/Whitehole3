@@ -232,7 +232,8 @@ async fn get_rank(
         let above = roles.get(index).unwrap();
         next = above.points;
         if next != 0 {
-            percent = ((current / next) * 100).clamp(0, 100);
+            percent = ((current as f32 / next as f32) * 100.0).clamp(0.0, 100.0) as i32;
+
             debug!("next != 0: {}/{} => {}%", current, next, percent);
         } else {
             percent = 100;
@@ -291,7 +292,11 @@ async fn get_rank(
 
                 data
             } else {
-                String::new()
+                let mut data = String::from("data:image/png;base64,");
+                let img_data = include_bytes!("svg/blank.png");
+                base64::encode_config_buf(&img_data, base64::STANDARD, &mut data);
+
+                data
             }
         }
     );
