@@ -12,12 +12,17 @@ serenity = "0.10.7"
 once_cell= "1.8.0"
 reqwest= "0.11.4"
 dotenv= "0.15.0"
+serde = {version = "1.0.129", features=["derive"]}
 wh_core       =  { path = "../wh_core"       }
 wh_database   =  { path = "../wh_database"   }
 wh_permission =  { path = "../wh_permission" }
+wh_options    =  { path = "../wh_options"    }
 fluent_const  =  { path = "../fluent_const"  }
+image = "0.23.14"
+tokio = {version = "1.10.1", features = ["rt"]}
+
 
 [dependencies.sqlx]
 default-features = false
-features = ["postgres", "runtime-tokio-rustls", "chrono", "macros"]
+features = ["postgres", "runtime-tokio-rustls", "macros"]
 version = "0.5.2"

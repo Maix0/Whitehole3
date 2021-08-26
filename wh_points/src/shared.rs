@@ -3,6 +3,7 @@ pub static BASE_URL: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(
     std::env::var("WH_WEB_SERVER").expect("You need to provide the WH_WEB_SERVER env variable")
 });
 
+use image::GenericImageView;
 use serenity::{
     client::Context,
     framework::standard::CommandResult,
@@ -160,7 +161,7 @@ pub async fn get_role_points(
 // ----------------------------------------------------------
 
 use serenity::model::channel::Message;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 pub async fn get_all_role_for_user(
     ctx: &Context,
     userid: u64,
@@ -223,4 +224,56 @@ pub async fn handle_user_message(ctx: &Context, msg: &Message) -> CommandResult 
         let _ = member.add_roles(&ctx, &diff).await?;
     }
     Ok(())
+}
+
+/*
+/---------------------------------------------------------------------------\
+|  ____          _                    ___                                   |
+| / ___|   _ ___| |_ ___  _ __ ___   |_ _|_ __ ___   __ _  __ _  ___  ___   |
+|| |  | | | / __| __/ _ \| '_ ` _ \   | || '_ ` _ \ / _` |/ _` |/ _ \/ __|  |
+|| |__| |_| \__ \ || (_) | | | | | |  | || | | | | | (_| | (_| |  __/\__ \  |
+| \____\__,_|___/\__\___/|_| |_| |_| |___|_| |_| |_|\__,_|\__, |\___||___/  |
+|                                                         |___/             |
+\---------------------------------------------------------------------------/
+*/
+
+pub async fn add_rank_image_file(
+    guildid: u64,
+    userid: u64,
+    image_data: &[u8],
+) -> CommandResult<String> {
+    let img = image::load_from_memory(image_data)?;
+
+    let image_view =
+        tokio::spawn(
+            async move { img.resize_exact(500, 200, image::imageops::FilterType::Lanczos3) },
+        )
+        .await
+        .unwrap();
+
+    let mut data = std::fs::OpenOptions::new();
+    data.write(true).truncate(true).create(true);
+
+    let out_file = format!(
+        "{base}/images/rank/{guild}_{user}.png",
+        base = std::env::var("WH_BASE_FS").expect("Must set WH_BASE_FS"),
+        guild = guildid,
+        user = userid
+    );
+
+    let mut data = data.open(&out_file)?;
+
+    let encoder = image::codecs::png::PngEncoder::new_with_quality(
+        &mut data,
+        image::codecs::png::CompressionType::Best,
+        image::codecs::png::FilterType::Avg,
+    );
+    encoder.encode(
+        image_view.as_bytes(),
+        image_view.width(),
+        image_view.height(),
+        image_view.color(),
+    )?;
+
+    Ok(out_file)
 }

@@ -1,18 +1,22 @@
 #[macro_use]
 extern crate log;
-extern crate serenity;
 #[macro_use]
 extern crate sqlx;
 #[macro_use]
 extern crate wh_core;
-extern crate wh_database;
 #[macro_use]
 extern crate wh_permission;
 #[macro_use]
 extern crate fluent_const;
+#[macro_use]
+extern crate serde;
 extern crate dotenv;
+extern crate image;
 extern crate once_cell;
 extern crate reqwest;
+extern crate serenity;
+extern crate wh_database;
+extern crate wh_options;
 
 mod commands;
 mod event_handler;
