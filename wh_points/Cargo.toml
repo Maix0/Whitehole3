@@ -16,7 +16,7 @@ serde = {version = "1.0.129", features=["derive"]}
 wh_core       =  { path = "../wh_core"       }
 wh_database   =  { path = "../wh_database"   }
 wh_permission =  { path = "../wh_permission" }
-wh_options    =  { path = "../wh_options"    }
+wh_config    =  { path = "../wh_config"    }
 fluent_const  =  { path = "../fluent_const"  }
 image = "0.23.14"
 tokio = {version = "1.10.1", features = ["rt"]}

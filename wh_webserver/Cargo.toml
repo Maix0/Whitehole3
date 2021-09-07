@@ -10,6 +10,7 @@ log = "0.4.14"
 resvg = "0.16.0"
 usvg = "0.16.0"
 dotenv = "0.15.0"
+rocket_oauth2 = "0.5.0-rc.1"
 
 wh_core = { path = "../wh_core" }
 wh_database = {path = "../wh_database" }

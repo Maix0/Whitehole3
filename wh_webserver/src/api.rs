@@ -1,11 +1,12 @@
+use crate::{CacheHttp, Data};
 use rocket::{
     http::{ContentType, Status},
     Route, State,
 };
 use serenity::model::id::{GuildId, RoleId, UserId};
 
-use crate::{CacheHttp, Data};
-fn to_string<T: std::error::Error>(x: T) -> (Status, String) {
+#[inline(always)]
+fn handle_error<T: std::error::Error>(x: T) -> (Status, String) {
     (Status::InternalServerError, x.to_string())
 }
 
@@ -32,7 +33,7 @@ async fn get_leaderbord(
     )
     .fetch_all(db)
     .await
-    .map_err(to_string)?;
+    .map_err(handle_error)?;
     let mut pairs: Vec<(u64, i64)> = Vec::with_capacity(res.len());
     for re in res {
         pairs.push((unsafe { std::mem::transmute(re.userid) }, re.points));
@@ -49,14 +50,14 @@ async fn get_leaderbord(
     )
     .fetch_all(db)
     .await
-    .map_err(to_string)?;
+    .map_err(handle_error)?;
 
     let mut role_pairs = Vec::<(u64, i64, u32)>::with_capacity(res.len());
 
     let roles = GuildId(guildid)
         .roles(&cachehttp.http)
         .await
-        .map_err(to_string)?;
+        .map_err(handle_error)?;
     for re in res {
         let (roleid, points) = (unsafe { std::mem::transmute(re.roleid) }, re.points);
         let color = roles
@@ -69,9 +70,9 @@ async fn get_leaderbord(
         role_pairs.push((roleid, points, color));
     }
     let leaderboard = format!(
-        include_str!("svg/leaderboard.svg"),
+        include_str!("imgs/leaderboard.svg"),
         header = format!(
-            include_str!("svg/header.svg"),
+            include_str!("imgs/header.svg"),
             guid_name = GuildId(guildid)
                 .name(&cachehttp.cache)
                 .await
@@ -101,13 +102,13 @@ async fn get_leaderbord(
         }
         .to_ref(),
     )
-    .map_err(to_string)?;
+    .map_err(handle_error)?;
 
     let mut pixmap = tiny_skia::Pixmap::new(800, 600).unwrap();
 
     resvg::render(&svg, usvg::FitTo::Original, pixmap.as_mut());
     //Ok((ContentType::SVG, leaderboard.into_bytes()))
-    Ok((ContentType::PNG, pixmap.encode_png().map_err(to_string)?))
+    Ok((ContentType::PNG, pixmap.encode_png().map_err(handle_error)?))
 }
 async fn generate_rank_item<'a>(
     page: u16,
@@ -117,7 +118,7 @@ async fn generate_rank_item<'a>(
 ) -> String {
     if let Some((sub_rank, pair)) = iter.next() {
         format!(
-            include_str!("svg/rankitem.svg"),
+            include_str!("imgs/rankitem.svg"),
             rank = (sub_rank + (page - 1) as usize * 10) + 1,
             rank_font_size = if (sub_rank + (page - 1) as usize * 10) + 1 < 10 {
                 48
@@ -200,7 +201,7 @@ async fn get_rank(
     )
     .fetch_all(db)
     .await
-    .map_err(to_string)?;
+    .map_err(handle_error)?;
     let user_points = query!(
         "SELECT points FROM user_points WHERE userid = $1::int8 AND guildid = $2::int8",
         wh_database::shared::Id(userid) as _,
@@ -208,7 +209,7 @@ async fn get_rank(
     )
     .fetch_optional(db)
     .await
-    .map_err(to_string)?
+    .map_err(handle_error)?
     .map(|r| r.points)
     .unwrap_or(0);
 
@@ -243,7 +244,7 @@ async fn get_rank(
     let user = UserId(userid)
         .to_user(&cachehttp.http)
         .await
-        .map_err(to_string)?;
+        .map_err(handle_error)?;
     let req = reqwest::get({
         let mut url = user.face();
         debug!("face: {}", url);
@@ -259,15 +260,15 @@ async fn get_rank(
         url
     })
     .await
-    .map_err(to_string)?;
+    .map_err(handle_error)?;
 
     let url = format!(
         "data:image/png;base64,{}",
-        base64::encode(&req.bytes().await.map_err(to_string)?)
+        base64::encode(&req.bytes().await.map_err(handle_error)?)
     );
 
     let data = format!(
-        include_str!("svg/rank.svg"),
+        include_str!("imgs/rank.svg"),
         percent = percent,
         next = next,
         current = current,
@@ -282,22 +283,18 @@ async fn get_rank(
                 user = userid
             );
             let path = &std::path::Path::new(path_str.as_str());
+            let mut data = String::from("data:image/png;base64,");
             if path.exists() {
-                let mut data = String::from("data:image/png;base64,");
                 let img_data = rocket::tokio::spawn(async move { std::fs::read(&path_str) })
                     .await
                     .unwrap()
-                    .map_err(to_string)?;
+                    .map_err(handle_error)?;
                 base64::encode_config_buf(&img_data, base64::STANDARD, &mut data);
-
-                data
             } else {
-                let mut data = String::from("data:image/png;base64,");
-                let img_data = include_bytes!("svg/blank.png");
+                let img_data = include_bytes!("imgs/blank.png");
                 base64::encode_config_buf(&img_data, base64::STANDARD, &mut data);
-
-                data
             }
+            data
         }
     );
 
@@ -322,9 +319,35 @@ async fn get_rank(
     })
     .await
     .unwrap();
-    Ok((ContentType::PNG, pixmap.encode_png().map_err(to_string)?))
+    Ok((ContentType::PNG, pixmap.encode_png().map_err(handle_error)?))
+}
+
+pub struct Discord;
+
+#[get("/login")]
+fn discord_login(
+    oauth2: rocket_oauth2::OAuth2<Discord>,
+    cookies: &rocket::http::CookieJar<'_>,
+) -> rocket::response::Redirect {
+    oauth2
+        .get_redirect(cookies, &["identify", "guilds"])
+        .unwrap()
+}
+
+#[get("/auth")]
+fn discord_callback(
+    token: rocket_oauth2::TokenResponse<Discord>,
+    cookies: &rocket::http::CookieJar<'_>,
+) -> rocket::response::Redirect {
+    cookies.add_private(
+        rocket::http::Cookie::build("token", token.access_token().to_string())
+            .same_site(rocket::http::SameSite::Lax)
+            .finish(),
+    );
+
+    rocket::response::Redirect::to("/app")
 }
 
 pub fn routes() -> Vec<Route> {
-    routes![get_leaderbord, get_rank]
+    routes![get_leaderbord, get_rank, discord_callback, discord_login]
 }

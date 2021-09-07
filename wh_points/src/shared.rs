@@ -161,7 +161,7 @@ pub async fn get_role_points(
 // ----------------------------------------------------------
 
 use serenity::model::channel::Message;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 pub async fn get_all_role_for_user(
     ctx: &Context,
     userid: u64,

@@ -9,6 +9,7 @@ extern crate base64;
 extern crate dotenv;
 extern crate reqwest;
 extern crate resvg;
+extern crate rocket_oauth2;
 extern crate serenity;
 extern crate tiny_skia;
 extern crate usvg;
@@ -21,20 +22,21 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 mod api;
+mod error;
 
 pub type Data = Arc<RwLock<TypeMap>>;
 pub type CacheHttp = Arc<serenity::CacheAndHttp>;
 pub async fn run_webserver(typemap: Data, cache_http: CacheHttp) {
-    let mut config = rocket::config::Config::default();
-    config.secret_key = rocket::config::SecretKey::from(&include_bytes!("secretkey")[..]);
-    config.port = std::env::var("WH_WEB_SERVER_PORT")
-        .expect("You must provide the WH_WEB_SERVER_PORT environment variable")
-        .parse()
-        .expect("WH_WEB_SERVER_PORT must be a valid port number");
-    let res = rocket::custom(config)
+    let res = rocket::build()
         .manage(typemap)
         .manage(cache_http)
         .mount("/api", api::routes())
+        .mount("/", routes![index])
+        .mount(
+            "/app",
+            rocket::fs::FileServer::from(rocket::fs::relative!("./static")),
+        )
+        .attach(rocket_oauth2::OAuth2::<api::Discord>::fairing("discord"))
         .ignite()
         .await;
     if let Err(e) = &res {
@@ -83,4 +85,9 @@ async fn main() {
     info!("starting");
 
     run_webserver(typemap, cache_http).await;
+}
+
+#[get("/")]
+async fn index() -> rocket::response::Redirect {
+    rocket::response::Redirect::permanent("/")
 }
