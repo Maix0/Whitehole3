@@ -18,3 +18,7 @@ tokio = {version="1.0", features=["full"]}
 default-features = false
 features = ["postgres", "runtime-tokio-rustls", "macros", "json"]
 version = "0.5.2"
+
+
+[dev-dependencies]
+dotenv = "0.15.0"
