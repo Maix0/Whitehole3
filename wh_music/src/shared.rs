@@ -49,6 +49,15 @@ pub enum SongType {
     MultipleUrl(Vec<url::Url>),
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SongUrl {
+    YoutubeVideo(url::Url),
+    YoutubePlaylist(url::Url),
+    Spotify(url::Url),
+    Query(String),
+    Deezer(url::Url),
+}
+
 impl SongUrl {
     pub fn from_url(url: url::Url) -> Self {
         match url.scheme() {
@@ -76,6 +85,7 @@ impl SongUrl {
             Self::YoutubePlaylist(p) => SongType::MultipleUrl(get_yt_playlist_urls(p).await?),
             Self::Query(s) => SongType::SingleQuery(s),
             Self::Spotify(q) => SongType::MultipleQuery(handle_spotify(q).await?),
+            Self::Deezer(q) => SongType::MultipleQuery(handle_deezer(q).await?),
         })
     }
 }
@@ -155,9 +165,7 @@ async fn get_yt_playlist_urls<S: AsRef<str>>(query: S) -> CommandResult<Vec<url:
     Ok(out)
 }
 #[hook]
-async fn handle_spotify(
-    uri: url::Url,
-) -> Result<Vec<String>, Box<dyn std::error::Error + Send + Sync>> {
+async fn handle_spotify(uri: url::Url) -> CommandResult<Vec<String>> {
     static CLIENT: once_cell::sync::Lazy<aspotify::Client> = once_cell::sync::Lazy::new(|| {
         aspotify::Client::new(
             aspotify::ClientCredentials::from_env_vars("WH_SPOTIFY_ID", "WH_SPOTIFY_SECRET")
@@ -277,13 +285,56 @@ async fn handle_spotify(
     Ok(out)
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SongUrl {
-    YoutubeVideo(url::Url),
-    YoutubePlaylist(url::Url),
-    Spotify(url::Url),
-    Query(String),
+async fn handle_deezer(uri: url::Url) -> CommandResult<Vec<String>> {
+    // Track URL: https://www.deezer.com/us/track/108733474;
+
+    let mut out = Vec::new();
+    let path = uri.path_segments();
+    if path.is_none() {
+        message_err!("Please input valid deezer url!");
+    }
+
+    let mut path = path.unwrap();
+    path.skip(1);
+    let (typeid, id) = (path.next(), path.next());
+
+    if typeid.is_none() || id.is_none() {
+        message_err!("Please input valid deezer url!")
+    }
+    let (typeid, id) = (typeid.unwrap(), id.unwrap());
+    let id: Result<u64, _> = id.parse();
+
+    if let Err(e) = &id {
+        message_err!("Please input valid deezer url!");
+    }
+
+    let id = id.unwrap();
+
+    let deezer_client = deezer::DeezerClient::new();
+    match typeid {
+        "track" => {
+            let res = deezer_client.track(id).await?;
+
+            if res.is_none() {
+                message_err!("Couldn't find given track on Deezer!");
+            }
+
+            let res = res.unwrap();
+
+            out.push(res.title_short + " - " + &res.artist.name);
+        }
+        "album" => {
+            //
+        }
+        "playlist" => {
+            //
+        }
+        _ => {}
+    }
+
+    Ok(out)
 }
+
 #[derive(Debug, Clone, Deserialize, Serialize)]
 struct PlaylistItems {
     #[serde(alias = "nextPageToken")]

@@ -1,4 +1,6 @@
-pub use serde::{de::DeserializeOwned, Serialize};
+pub use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use std::fmt::Debug;
+use std::fmt::Display;
 
 pub trait Config: Serialize + DeserializeOwned {
     const KEY: &'static str;
@@ -9,15 +11,25 @@ pub struct ConfigGuard<T: Config> {
     guildid: u64,
     data: T,
 }
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
+pub struct ReadConfig<T: Config> {
+    inner: T,
+}
 
-use std::fmt::Debug;
+impl<T: Config> std::ops::Deref for ReadConfig<T> {
+    type Target = T;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
 impl<T: Config + Debug + ?Sized> Debug for ConfigGuard<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.data.fmt(f)
     }
 }
 
-use std::fmt::Display;
 impl<T: Config + Display + ?Sized> Display for ConfigGuard<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.data.fmt(f)
@@ -105,7 +117,7 @@ pub async fn get_config<T: Config>(
 }
 
 pub async fn set_config<T: Config>(guard: ConfigGuard<T>) -> AllResult<()> {
-    let mut guard = guard;
+    let mut guard = std::mem::ManuallyDrop::new(guard);
     query!(
         "SELECT * FROM set_config($1::int8, $2::varchar, $3::jsonb)",
         wh_database::shared::Id(guard.guildid) as _,
@@ -122,4 +134,54 @@ pub async fn set_config<T: Config>(guard: ConfigGuard<T>) -> AllResult<()> {
     };
     std::mem::forget(guard);
     Ok(())
+}
+
+pub async fn read_config<T: Config>(
+    database: &sqlx::PgPool,
+    guildid: u64,
+) -> AllResult<Option<ReadConfig<T>>> {
+    let res = query!(
+        "SELECT data FROM guild_config WHERE guildid = $1 AND key = $2",
+        wh_database::shared::Id(guildid) as _,
+        <T as Config>::KEY
+    )
+    .fetch_optional(database)
+    .await?;
+    Ok(match res.map(|r| r.data) {
+        Some(d) => {
+            let val: Result<T, _> = serde_json::value::from_value(d);
+            if let Err(e) = &val {
+                error!(
+                    "Error when deserializing config `{}`: {}",
+                    <T as Config>::KEY,
+                    e
+                );
+                None
+            } else {
+                Some(val.unwrap())
+            }
+        }
+        None => None,
+    }
+    .map(|d| ReadConfig { inner: d }))
+}
+
+pub async fn read_config_or_default<T: Config + Default>(
+    database: &sqlx::PgPool,
+    guildid: u64,
+) -> AllResult<ReadConfig<T>> {
+    Ok(read_config::<T>(database, guildid)
+        .await?
+        .unwrap_or_default())
+}
+
+#[derive(Default, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct AllowCustomImage {
+    pub default: bool,
+    pub whitelist: Vec<u64>,
+    pub blacklist: Vec<u64>,
+}
+
+impl Config for AllowCustomImage {
+    const KEY: &'static str = "image.custom.rule";
 }

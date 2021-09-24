@@ -50,8 +50,8 @@ pub async fn queue(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                                 .clone()
                                 .unwrap_or_else(|| String::from("Unknown"))
                         });
-                        if title.len() > 57 {
-                            title = title.chars().take(57).collect::<String>() + "...";
+                        if title.len() > 37 {
+                            title = title.chars().take(37).collect::<String>() + "...";
                         }
                         title
                     },
@@ -108,7 +108,7 @@ pub async fn queue(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                     use std::fmt::Write;
                     write!(
                         content,
-                        "`{index})`[{title}]({url})\nAdded by: `{username} [{duration}]`\n",
+                        "`{index})`[{title}]({url})\n\tAdded by: `{username} [{duration}]`\n",
                         title = {
                             let mut title = metadata.title.clone().unwrap_or_else(|| {
                                 metadata
@@ -116,7 +116,7 @@ pub async fn queue(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                                     .clone()
                                     .unwrap_or_else(|| String::from("Unknown"))
                             });
-                            if title.len() > 57 {
+                            if title.len() > 47 {
                                 title = title.chars().take(57).collect::<String>() + "...";
                             }
                             title

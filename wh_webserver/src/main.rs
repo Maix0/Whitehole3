@@ -13,6 +13,7 @@ extern crate rocket_oauth2;
 extern crate serenity;
 extern crate tiny_skia;
 extern crate usvg;
+extern crate wh_config;
 extern crate wh_core;
 
 use rocket::tokio;

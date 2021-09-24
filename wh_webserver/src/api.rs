@@ -190,6 +190,15 @@ async fn get_rank(
 ) -> Result<(ContentType, Vec<u8>), (Status, String)> {
     let lock = data.read().await;
     let db = lock.get::<wh_database::shared::DatabaseKey>().unwrap();
+    let rules = wh_config::shared::read_config_or_default::<wh_config::shared::AllowCustomImage>(
+        db, guildid,
+    )
+    .await;
+
+    let rules = match rules {
+        Err(e) => return Err(handle_error(&*e)),
+        Ok(v) => v,
+    };
 
     let roles = query!(
         "
@@ -284,7 +293,11 @@ async fn get_rank(
             );
             let path = &std::path::Path::new(path_str.as_str());
             let mut data = String::from("data:image/png;base64,");
-            if path.exists() {
+
+            if path.exists()
+                && (rules.default || rules.whitelist.contains(&userid))
+                && !rules.blacklist.contains(&userid)
+            {
                 let img_data = rocket::tokio::spawn(async move { std::fs::read(&path_str) })
                     .await
                     .unwrap()
