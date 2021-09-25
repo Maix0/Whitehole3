@@ -72,6 +72,7 @@ impl SongUrl {
                         }
                     }
                     "spotify.com" | "open.spotify.com" => Self::Spotify(url),
+                    "deezer.com" | "www.deezer.com" => Self::Deezer(url),
                     _ => Self::Query(url.to_string()),
                 },
                 _ => Self::Query(url.to_string()),
@@ -294,8 +295,8 @@ async fn handle_deezer(uri: url::Url) -> CommandResult<Vec<String>> {
         message_err!("Please input valid deezer url!");
     }
 
-    let mut path = path.unwrap();
-    path.skip(1);
+    let path = path.unwrap();
+    let mut path = path.skip(1);
     let (typeid, id) = (path.next(), path.next());
 
     if typeid.is_none() || id.is_none() {
@@ -324,10 +325,30 @@ async fn handle_deezer(uri: url::Url) -> CommandResult<Vec<String>> {
             out.push(res.title_short + " - " + &res.artist.name);
         }
         "album" => {
-            //
+            let res = deezer_client.album(id).await?;
+
+            if res.is_none() {
+                message_err!("Couldn't find the given album on Deezer!");
+            }
+
+            let res = res.unwrap();
+
+            for track in res.tracks {
+                out.push(track.title_short + " - " + &track.artist.name);
+            }
         }
         "playlist" => {
-            //
+            let res = deezer_client.playlist(id).await?;
+
+            if res.is_none() {
+                message_err!("Couldn't find the given playlist on Deezer!");
+            }
+
+            let res = res.unwrap();
+
+            for track in res.tracks {
+                out.push(track.title_short + " - " + &track.artist.name);
+            }
         }
         _ => {}
     }
