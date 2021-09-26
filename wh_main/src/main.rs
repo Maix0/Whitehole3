@@ -124,6 +124,16 @@ async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     #[serenity::framework::standard::macros::hook]
+    async fn before_hook(
+        _: &serenity::client::Context,
+        _: &serenity::model::channel::Message,
+        cmd_name: &str,
+    ) -> bool {
+        // debug!("cmd_name: {}", cmd_name);
+        true
+    }
+
+    #[serenity::framework::standard::macros::hook]
     async fn error_hook(
         ctx: &serenity::client::Context,
         msg: &serenity::model::channel::Message,
@@ -172,6 +182,7 @@ async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
         .help(&wh_core::HELP_COMMAND)
         .after(after_hook)
         .on_dispatch_error(error_hook)
+        .before(before_hook)
         .configure(|c| {
             c.prefix("wh?");
             c.allow_dm(false);
@@ -208,6 +219,8 @@ async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
     if let Err(e) = client.as_ref() {
         error!("Error when creating client: {}", e);
     }
+
+    debug!("Start");
     let mut client = client.unwrap();
     match client.start().await {
         Err(e) => error!("Error when starting client: {}", e),

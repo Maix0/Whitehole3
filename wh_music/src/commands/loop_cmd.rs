@@ -5,10 +5,11 @@ use serenity::model::channel::Message;
 #[command("loop")]
 #[only_in(guilds)]
 #[usage("loop <?num>")]
-pub async fn loop_cmd(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+#[example("loop 7")]
+pub async fn loop_cmd(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
     let manager = songbird::get(&ctx).await.unwrap();
 
-    let call = manager.get(msg.guild_id);
+    let call = manager.get(msg.guild_id.unwrap());
 
     if call.is_none() {
         message_err!(fluent!(MUSIC_voice_not_connected));
@@ -28,31 +29,35 @@ pub async fn loop_cmd(ctx: &Context, msg: &Message, args: Args) -> CommandResult
             n => Some(n),
         }
     };
-    let mut new_loop_state = songbird::tracks::LoopState::Finite(0);
     let num_arg: Option<usize> = args.single().ok();
 
-    if loop_state.is_none() {
+    let new_loop_state = if loop_state.is_none() {
         match num_arg {
-            Some(n) => new_loop_state = songbird::tracks::LoopState::Finite(n),
-            None => new_loop_state = songbird::tracks::LoopState::Infinte,
+            Some(n) => songbird::tracks::LoopState::Finite(n),
+            None => songbird::tracks::LoopState::Infinite,
         }
     } else {
         match num_arg {
-            Some(n) => new_loop_state = songbird::tracks::LoopState::Finite(n),
-            None => new_loop_state = songbird::tracks::LoopState::Finite(0),
+            Some(n) => songbird::tracks::LoopState::Finite(n),
+            None => songbird::tracks::LoopState::Finite(0),
         }
-    }
+    };
 
     match new_loop_state {
         songbird::tracks::LoopState::Finite(n) => {
-            if n = 0 {
-                call.lock().await.queue().current().unwrap().disable_loop();
+            if n == 0 {
+                call.lock()
+                    .await
+                    .queue()
+                    .current()
+                    .unwrap()
+                    .disable_loop()?;
             } else {
-                call.lock().await.queue().current().unwrap().loop_for(n);
+                call.lock().await.queue().current().unwrap().loop_for(n)?;
             }
         }
         songbird::tracks::LoopState::Infinite => {
-            call.lock().await.queue().current().unwrap().enable_loop()
+            call.lock().await.queue().current().unwrap().enable_loop()?
         }
     }
 

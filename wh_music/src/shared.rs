@@ -306,7 +306,10 @@ async fn handle_deezer(uri: url::Url) -> CommandResult<Vec<String>> {
     let id: Result<u64, _> = id.parse();
 
     if let Err(e) = &id {
-        message_err!("Please input valid deezer url!");
+        both_err!(
+            "Please input valid deezer url!",
+            format!("Deezer Error: {}", e)
+        );
     }
 
     let id = id.unwrap();
