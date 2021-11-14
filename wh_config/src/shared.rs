@@ -16,6 +16,18 @@ pub struct ReadConfig<T: Config> {
     inner: T,
 }
 
+impl<T: Config + Debug + ?Sized> Debug for ReadConfig<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
+impl<T: Config + Display + ?Sized> Display for ReadConfig<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
 impl<T: Config> std::ops::Deref for ReadConfig<T> {
     type Target = T;
 

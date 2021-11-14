@@ -1,21 +1,26 @@
 extern crate fern;
+extern crate log;
 extern crate serenity;
 
 pub mod event_handler;
 #[macro_use]
 pub mod macros;
 
+type EventHandlerFunction =
+    fn(
+        &mut crate::event_handler::WhEventHandlerManager,
+    ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + '_ + Send>>;
+
+type TypemapFunction = fn(
+    &mut serenity::prelude::TypeMap,
+) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + '_ + Send>>;
 pub struct ModuleDeclaration {
     pub module_name: &'static str,
     pub command_groups: &'static [&'static serenity::framework::standard::CommandGroup],
-    pub register_typemap:
-        fn(
-            &mut serenity::prelude::TypeMap,
-        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + '_ + Send>>,
-    pub register_event_handler:
-        fn(
-            &mut crate::event_handler::WhEventHandlerManager,
-        ) -> std::pin::Pin<Box<dyn std::future::Future<Output = ()> + '_ + Send>>,
+    pub register_typemap: TypemapFunction,
+
+    pub register_event_handler: EventHandlerFunction,
+
     pub register_builder:
         fn(serenity::client::ClientBuilder<'_>) -> serenity::client::ClientBuilder<'_>,
     pub register_intent: fn(

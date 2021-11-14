@@ -4,8 +4,10 @@ extern crate rocket;
 extern crate log;
 #[macro_use]
 extern crate sqlx;
+extern crate serde;
 
 extern crate base64;
+extern crate chrono;
 extern crate dotenv;
 extern crate reqwest;
 extern crate resvg;

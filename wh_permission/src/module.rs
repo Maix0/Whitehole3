@@ -10,7 +10,10 @@ pub static MODULE_DECLARATION: wh_core::ModuleDeclaration = wh_core::ModuleDecla
 
 async fn register_typemap(_: &mut serenity::prelude::TypeMap) {}
 
-async fn register_event_handler(_: &mut wh_core::event_handler::WhEventHandlerManager) {}
+async fn register_event_handler(
+    _: &mut wh_core::event_handler::WhEventHandlerManager,
+) {
+}
 
 fn register_builder(
     client: serenity::client::ClientBuilder<'_>,

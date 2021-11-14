@@ -1,0 +1,26 @@
+<svg width="800" height="210" viewBox="0 0 800 210" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="800" height="210" fill="#C4C4C4" />
+    <rect x="28" y="10" width="733" height="190" rx="12" fill="#E8E8E8" />
+    <rect x="45" y="157" width="700" height="20" rx="10" fill="#C4C4C4" />
+    <rect x="45" y="157" width="274" height="20" rx="10" fill="#FF0000" />
+    <text fill="black" xml:space="preserve" style="white-space: pre" font-family="Ubuntu Mono" font-size="20"
+        letter-spacing="0.045em">
+        <tspan x="655.7" y="173.6">{total_duration}</tspan>
+    </text>
+    <text fill="black" xml:space="preserve" style="white-space: pre" font-family="Ubuntu Mono" font-size="20"
+        letter-spacing="0.045em">
+        <tspan x="48" y="173.6">{current_duration}</tspan>
+    </text>
+    <text fill="black" xml:space="preserve" style="white-space: pre" font-family="Ubuntu Mono" font-size="30"
+        letter-spacing="0.045em">
+        <tspan x="207.15" y="53.4">{title}</tspan>
+    </text>
+    <text fill="black" xml:space="preserve" style="white-space: pre" font-family="Ubuntu Mono" font-size="24"
+        letter-spacing="0.045em">
+        <tspan x="40" y="112.92">Added By: {added_by}</tspan>
+    </text>
+    <text fill="black" xml:space="preserve" style="white-space: pre" font-family="Ubuntu Mono" font-size="24"
+        letter-spacing="0.045em">
+        <tspan x="606.26" y="117.42">Loop: {loop_state}</tspan>
+    </text>
+</svg>

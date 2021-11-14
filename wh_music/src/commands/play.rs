@@ -22,31 +22,7 @@ async fn play(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
 
     let vc = guild.voice_states.get(&ctx.cache.current_user_id().await);
     if vc.is_none() {
-        let guild_id = guild.id;
-
-        let channel_id = guild
-            .voice_states
-            .get(&msg.author.id)
-            .and_then(|x| x.channel_id);
-
-        let connect_to = match channel_id {
-            None => {
-                message_err!(fluent!(MUSIC_need_voice_channel));
-            }
-            Some(vc) => vc,
-        };
-
-        let manager = songbird::get(ctx).await.unwrap();
-
-        let (handler, res) = manager.join(guild_id, connect_to).await;
-        res?;
-        let meh = crate::shared::MusicEventHandler {
-            call: handler.clone(),
-        };
-        handler.lock().await.add_global_event(
-            songbird::events::Event::Track(songbird::events::TrackEvent::End),
-            meh,
-        );
+        super::join(ctx, msg, args).await?;
     }
 
     let manager = songbird::get(ctx).await.unwrap();

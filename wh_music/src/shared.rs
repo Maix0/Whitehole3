@@ -305,7 +305,7 @@ async fn handle_deezer(uri: url::Url) -> CommandResult<Vec<String>> {
     let (typeid, id) = (typeid.unwrap(), id.unwrap());
     let id: Result<u64, _> = id.parse();
 
-    if let Err(e) = &id {
+    if let Err(_e) = &id {
         message_err!("Please input valid deezer url!");
     }
 
@@ -571,3 +571,156 @@ pub async fn create_playlist_if_not_exist(
 
     Ok(true)
 }
+
+/*
+  __  ____                        _ _              __
+ / / |  _ \ ___  ___ ___  _ __ __| (_)_ __   __ _  \ \
+/ /  | |_) / _ \/ __/ _ \| '__/ _` | | '_ \ / _` |  \ \
+\ \  |  _ <  __/ (_| (_) | | | (_| | | | | | (_| |  / /
+ \_\ |_| \_\___|\___\___/|_|  \__,_|_|_| |_|\__, | /_/
+                                            |___/
+
+*/
+
+#[derive(Clone, Debug, Default)]
+pub struct GuildRecording {
+    sound_buffer: std::collections::VecDeque<i32>,
+}
+
+impl GuildRecording {
+    pub fn append_buffer(&mut self, data: &[i32]) {
+        self.sound_buffer.extend(data);
+    }
+
+    pub fn record_buffer(&self) -> Result<Vec<u8>, Box<dyn std::error::Error + Send + Sync>> {
+        let mut buffer = Vec::new();
+        {
+            let mut writter = hound::WavWriter::new(
+                std::io::Cursor::new(&mut buffer),
+                hound::WavSpec {
+                    channels: 4,
+                    sample_rate: 44100,
+                    bits_per_sample: 32,
+                    sample_format: hound::SampleFormat::Int,
+                },
+            )?;
+
+            for &sample in &self.sound_buffer {
+                writter.write_sample(sample)?;
+            }
+        }
+        Ok(buffer)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Recordings {
+    inner: std::collections::HashMap<serenity::model::id::GuildId, GuildRecording>,
+}
+
+impl Recordings {
+    pub async fn get_guild(
+        &self,
+        guild_id: &serenity::model::id::GuildId,
+    ) -> Option<&GuildRecording> {
+        self.inner.get(guild_id)
+    }
+    pub async fn get_guild_mut(
+        &mut self,
+        guild_id: &serenity::model::id::GuildId,
+    ) -> Option<&mut GuildRecording> {
+        self.inner.get_mut(guild_id)
+    }
+
+    pub async fn get_guild_default(
+        &mut self,
+        guild_id: &serenity::model::id::GuildId,
+    ) -> &mut GuildRecording {
+        self.inner.entry(*guild_id).or_default()
+    }
+}
+
+#[derive(Clone)]
+pub struct VoiceRecorder {
+    pub typemap: std::sync::Arc<tokio::sync::RwLock<serenity::prelude::TypeMap>>,
+    pub guild_id: serenity::model::id::GuildId,
+}
+
+#[serenity::async_trait]
+impl songbird::events::EventHandler for VoiceRecorder {
+    async fn act(
+        &self,
+        ctx: &songbird::events::EventContext<'_>,
+    ) -> Option<songbird::events::Event> {
+        match ctx {
+            songbird::EventContext::VoicePacket(_vc) => {
+                // dbg!(vc);
+                None
+            }
+            _ => None,
+        }
+    }
+}
+
+// --------------------------------------------
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LoopState {
+    None,
+    Infinite,
+    Finite(u8),
+}
+impl<'de> serde::Deserialize<'de> for LoopState {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let raw = <u8 as serde::Deserialize<'de>>::deserialize(deserializer)?;
+
+        Ok(match raw {
+            0 => LoopState::None,
+            n @ 1..=99 => LoopState::Finite(n),
+            100.. => LoopState::Infinite,
+        })
+    }
+}
+
+impl serde::Serialize for LoopState {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let n = match self {
+            LoopState::None => 0,
+            LoopState::Finite(n) => *n,
+            LoopState::Infinite => 100, // we didn't save the original value, so not a true roundtrip
+        };
+        serializer.serialize_u8(n)
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct Song {
+    pub duration: std::time::Duration,
+    pub title: String,
+    pub added_by: u64,
+    pub loop_num: LoopState,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NowPlaying {
+    pub time_in: std::time::Duration,
+    pub song: Song,
+}
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QueueRequest {
+    pub guildid: u64,
+    pub callerid: u64,
+    pub queue: arrayvec::ArrayVec<Song, 10>,
+    pub page_number: u8,
+    pub total_page_num: u8,
+}
+
+pub static BASE_URL: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(|| {
+    dotenv::dotenv().expect("Error with dotenv");
+    std::env::var("WH_WEB_SERVER").expect("You need to provide the WH_WEB_SERVER env variable")
+});

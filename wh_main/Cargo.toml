@@ -2,8 +2,8 @@
 name = "wh_main"
 version = "0.1.0"
 authors = ["Maix0 <maix522@gmail.com>"]
-edition = "2018"
-
+edition = "2021"
+default-run="wh_main"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -21,4 +21,3 @@ log="0.4.14"
 serenity="0.10.5"
 fern="0.6.0"
 chrono="0.4.19"
-rocket = "0.5.0-rc"
