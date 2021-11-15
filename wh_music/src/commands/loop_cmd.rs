@@ -5,8 +5,9 @@ use serenity::model::channel::Message;
 #[command("loop")]
 #[only_in(guilds)]
 #[usage("loop <?num>")]
+#[example("loop 7")]
 pub async fn loop_cmd(ctx: &Context, msg: &Message, mut args: Args) -> CommandResult {
-    let manager = songbird::get(ctx).await.unwrap();
+    let manager = songbird::get(&ctx).await.unwrap();
 
     let call = manager.get(msg.guild_id.unwrap());
 
@@ -28,20 +29,19 @@ pub async fn loop_cmd(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
             n => Some(n),
         }
     };
-    let new_loop_state;
     let num_arg: Option<usize> = args.single().ok();
 
-    if loop_state.is_none() {
+    let new_loop_state = if loop_state.is_none() {
         match num_arg {
-            Some(n) => new_loop_state = songbird::tracks::LoopState::Finite(n),
-            None => new_loop_state = songbird::tracks::LoopState::Infinite,
+            Some(n) => songbird::tracks::LoopState::Finite(n),
+            None => songbird::tracks::LoopState::Infinite,
         }
     } else {
         match num_arg {
-            Some(n) => new_loop_state = songbird::tracks::LoopState::Finite(n),
-            None => new_loop_state = songbird::tracks::LoopState::Finite(0),
+            Some(n) => songbird::tracks::LoopState::Finite(n),
+            None => songbird::tracks::LoopState::Finite(0),
         }
-    }
+    };
 
     match new_loop_state {
         songbird::tracks::LoopState::Finite(n) => {
@@ -52,15 +52,12 @@ pub async fn loop_cmd(ctx: &Context, msg: &Message, mut args: Args) -> CommandRe
                     .current()
                     .unwrap()
                     .disable_loop()?;
-                reply_message!(ctx, msg, fluent!(MUSIC_loop_disable));
             } else {
                 call.lock().await.queue().current().unwrap().loop_for(n)?;
-                reply_message!(ctx, msg, format!(fluent!(MUSIC_loop_enable_num), n));
             }
         }
         songbird::tracks::LoopState::Infinite => {
-            call.lock().await.queue().current().unwrap().enable_loop()?;
-            reply_message!(ctx, msg, fluent!(MUSIC_loop_enable_inf));
+            call.lock().await.queue().current().unwrap().enable_loop()?
         }
     }
 

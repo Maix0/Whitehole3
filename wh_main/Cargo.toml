@@ -21,3 +21,8 @@ log="0.4.14"
 serenity="0.10.5"
 fern="0.6.0"
 chrono="0.4.19"
+rocket = "0.5.0-rc"
+
+# To make the cyclic dependencies error disapear
+# Check here: https://github.com/tkaitchuck/aHash/issues/95
+indexmap = "=1.6.2"
