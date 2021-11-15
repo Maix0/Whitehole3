@@ -34,5 +34,14 @@ pub async fn join(ctx: &Context, msg: &Message) -> CommandResult {
         songbird::events::Event::Track(songbird::events::TrackEvent::End),
         meh,
     );
+    let voice_recorder = crate::shared::VoiceRecorder {
+        typemap: ctx.data.clone(),
+        guild_id: msg.guild_id.unwrap(),
+    };
+
+    handler.lock().await.add_global_event(
+        songbird::events::Event::Core(songbird::events::CoreEvent::VoicePacket),
+        voice_recorder,
+    );
     Ok(())
 }

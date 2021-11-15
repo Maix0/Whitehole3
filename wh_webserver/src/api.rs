@@ -11,6 +11,7 @@ fn handle_error<T: std::error::Error>(x: T) -> (Status, String) {
 }
 
 #[get("/leaderboard/<guildid>?<page>")]
+#[allow(clippy::format_in_format_args)]
 async fn get_leaderbord(
     cachehttp: &State<CacheHttp>,
     data: &State<Data>,
@@ -181,6 +182,209 @@ async fn generate_rank_item<'a>(
     }
 }
 
+async fn generate_queue_item(
+    http: &CacheHttp,
+    queue_pos: u16,
+    data: Option<&wh_music::shared::Song>,
+) -> String {
+    if let Some(data) = data {
+        let seconds = data.duration.as_secs() % 60;
+        let minutes = (data.duration.as_secs() / 60) % 60;
+        let hours = (data.duration.as_secs() / 60) / 60;
+
+        let username = UserId(data.added_by)
+            .to_user(http)
+            .await
+            .map(|u| u.tag())
+            .unwrap_or_else(|_| data.added_by.to_string());
+
+        format!(
+            include_str!("imgs/queue_item.svg"),
+            title = &data.title,
+            y = (queue_pos % 10) * 80 + 28,
+            queue_rank = queue_pos,
+            duration = format_args!("{:02}:{:02}:{:02}", hours, minutes, seconds),
+            loop_state = {
+                match data.loop_num {
+                    wh_music::shared::LoopState::None => "1".to_string(),
+                    wh_music::shared::LoopState::Finite(num) => num.to_string(),
+                    wh_music::shared::LoopState::Infinite => "∞".to_string(),
+                }
+            },
+            added_by = username,
+            rank_font = match queue_pos {
+                0..=99 => "36",
+                _ => "24",
+            },
+            y_rank = match queue_pos {
+                0..=99 => "31.38",
+                _ => "27.42",
+            },
+            x_rank = match queue_pos {
+                0..=9 => "10.19",
+                10..=99 => "0",
+                100.. => "0",
+            }
+        )
+    } else {
+        String::new()
+    }
+}
+
+async fn generate_queue_nowplaying(http: &CacheHttp, data: wh_music::shared::NowPlaying) -> String {
+    let play_seconds = data.time_in.as_secs() % 60;
+    let play_minutes = (data.time_in.as_secs() / 60) % 60;
+    let play_hours = (data.time_in.as_secs() / 60) / 60;
+
+    let seconds = data.song.duration.as_secs() % 60;
+    let minutes = (data.song.duration.as_secs() / 60) % 60;
+    let hours = (data.song.duration.as_secs() / 60) / 60;
+
+    let username = UserId(data.song.added_by)
+        .to_user(http)
+        .await
+        .map(|u| u.tag())
+        .unwrap_or_else(|_| data.song.added_by.to_string());
+    format!(
+        include_str!("imgs/queue_now_playing.svg"),
+        total_duration = format_args!("{:02}:{:02}:{:02}", hours, minutes, seconds),
+        current_duration =
+            format_args!("{:02}:{:02}:{:02}", play_hours, play_minutes, play_seconds),
+        title = data.song.title,
+        loop_state = {
+            match data.song.loop_num {
+                wh_music::shared::LoopState::None => "1".to_string(),
+                wh_music::shared::LoopState::Finite(num) => num.to_string(),
+                wh_music::shared::LoopState::Infinite => "∞".to_string(),
+            }
+        },
+        added_by = username,
+    )
+}
+#[post("/queue/now_playing", data = "<now_playing>")]
+async fn get_now_playing(
+    cachehttp: &State<CacheHttp>,
+    now_playing: rocket::serde::json::Json<wh_music::shared::NowPlaying>,
+) -> Result<(ContentType, Vec<u8>), (Status, String)> {
+    let now_playing = now_playing.into_inner();
+    let mut fontdb = usvg::fontdb::Database::new();
+
+    let now_playing_str = generate_queue_nowplaying(cachehttp, now_playing).await;
+
+    fontdb.load_fonts_dir("wh_webserver/font");
+    fontdb.load_system_fonts();
+
+    let svg = usvg::Tree::from_str(
+        now_playing_str.as_str(),
+        &usvg::Options {
+            fontdb,
+            ..Default::default()
+        }
+        .to_ref(),
+    )
+    .map_err(handle_error)?;
+
+    let mut pixmap = tiny_skia::Pixmap::new(800, 210).unwrap();
+
+    resvg::render(&svg, usvg::FitTo::Original, pixmap.as_mut());
+    //Ok((ContentType::SVG, leaderboard.into_bytes()))
+    Ok((ContentType::PNG, pixmap.encode_png().map_err(handle_error)?))
+}
+
+#[post("/queue/list", data = "<queue_data>")]
+async fn get_queue(
+    cachehttp: &State<CacheHttp>,
+    queue_data: rocket::serde::json::Json<wh_music::shared::QueueRequest>,
+) -> Result<(ContentType, Vec<u8>), (Status, String)> {
+    let queue_data = queue_data.into_inner();
+    let mut fontdb = usvg::fontdb::Database::new();
+
+    let queue = format!(
+        include_str!("imgs/queue.svg"),
+        queue_item_1 = generate_queue_item(
+            cachehttp,
+            queue_data.page_number as u16 * 10 + 1,
+            queue_data.queue.get(0)
+        )
+        .await,
+        queue_item_2 = generate_queue_item(
+            cachehttp,
+            queue_data.page_number as u16 * 10 + 2,
+            queue_data.queue.get(1)
+        )
+        .await,
+        queue_item_3 = generate_queue_item(
+            cachehttp,
+            queue_data.page_number as u16 * 10 + 3,
+            queue_data.queue.get(2)
+        )
+        .await,
+        queue_item_4 = generate_queue_item(
+            cachehttp,
+            queue_data.page_number as u16 * 10 + 4,
+            queue_data.queue.get(3)
+        )
+        .await,
+        queue_item_5 = generate_queue_item(
+            cachehttp,
+            queue_data.page_number as u16 * 10 + 5,
+            queue_data.queue.get(4)
+        )
+        .await,
+        queue_item_6 = generate_queue_item(
+            cachehttp,
+            queue_data.page_number as u16 * 10 + 6,
+            queue_data.queue.get(5)
+        )
+        .await,
+        queue_item_7 = generate_queue_item(
+            cachehttp,
+            queue_data.page_number as u16 * 10 + 7,
+            queue_data.queue.get(6)
+        )
+        .await,
+        queue_item_8 = generate_queue_item(
+            cachehttp,
+            queue_data.page_number as u16 * 10 + 8,
+            queue_data.queue.get(7)
+        )
+        .await,
+        queue_item_9 = generate_queue_item(
+            cachehttp,
+            queue_data.page_number as u16 * 10 + 9,
+            queue_data.queue.get(8)
+        )
+        .await,
+        queue_item_10 = generate_queue_item(
+            cachehttp,
+            queue_data.page_number as u16 * 10 + 10,
+            queue_data.queue.get(9)
+        )
+        .await,
+        page_number = queue_data.page_number + 1,
+        total_page_number = queue_data.total_page_num + 1
+    );
+
+    fontdb.load_fonts_dir("wh_webserver/font");
+    fontdb.load_system_fonts();
+
+    let svg = usvg::Tree::from_str(
+        queue.as_str(),
+        &usvg::Options {
+            fontdb,
+            ..Default::default()
+        }
+        .to_ref(),
+    )
+    .map_err(handle_error)?;
+
+    let mut pixmap = tiny_skia::Pixmap::new(800, 855).unwrap();
+
+    resvg::render(&svg, usvg::FitTo::Original, pixmap.as_mut());
+    //Ok((ContentType::SVG, leaderboard.into_bytes()))
+    Ok((ContentType::PNG, pixmap.encode_png().map_err(handle_error)?))
+}
+
 #[get("/rank/<guildid>/<userid>")]
 async fn get_rank(
     cachehttp: &State<CacheHttp>,
@@ -304,7 +508,7 @@ async fn get_rank(
                     .map_err(handle_error)?;
                 base64::encode_config_buf(&img_data, base64::STANDARD, &mut data);
             } else {
-                let img_data = include_bytes!("imgs/blank.png");
+                let img_data = include_bytes!("imgs/blank_rank.png");
                 base64::encode_config_buf(&img_data, base64::STANDARD, &mut data);
             }
             data
@@ -362,5 +566,12 @@ fn discord_callback(
 }
 
 pub fn routes() -> Vec<Route> {
-    routes![get_leaderbord, get_rank, discord_callback, discord_login]
+    routes![
+        get_leaderbord,
+        get_rank,
+        get_queue,
+        get_now_playing,
+        discord_callback,
+        discord_login,
+    ]
 }

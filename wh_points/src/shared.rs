@@ -4,6 +4,7 @@ pub static BASE_URL: once_cell::sync::Lazy<String> = once_cell::sync::Lazy::new(
 });
 
 use image::GenericImageView;
+use serde::{Deserialize, Serialize};
 use serenity::{
     client::Context,
     framework::standard::CommandResult,
@@ -162,6 +163,7 @@ pub async fn get_role_points(
 
 use serenity::model::channel::Message;
 use std::collections::HashSet;
+
 pub async fn get_all_role_for_user(
     ctx: &Context,
     userid: u64,
@@ -200,7 +202,7 @@ pub async fn handle_user_message(ctx: &Context, msg: &Message) -> CommandResult 
     let timemap = lock.get::<crate::shared::TimeMapkey>().unwrap();
     if timemap.is_valid(msg.guild_id.unwrap(), msg.author.id) {
         let _ =
-            crate::shared::create_user_if_not_exist(&ctx, msg.author.id.0, msg.guild_id.unwrap().0)
+            crate::shared::create_user_if_not_exist(ctx, msg.author.id.0, msg.guild_id.unwrap().0)
                 .await?;
 
         let _ = query!("UPDATE user_points SET points = points + random_between(10,20) WHERE userid = $1::int8 and guildid = $2::int8", wh_database::shared::Id(msg.author.id.0) as _, 
@@ -213,7 +215,7 @@ pub async fn handle_user_message(ctx: &Context, msg: &Message) -> CommandResult 
         timemap.update(msg.guild_id.unwrap(), msg.author.id);
         drop(lock);
         let res =
-            crate::shared::get_all_role_for_user(&ctx, msg.author.id.0, msg.guild_id.unwrap().0)
+            crate::shared::get_all_role_for_user(ctx, msg.author.id.0, msg.guild_id.unwrap().0)
                 .await?;
 
         let mut member = msg.member(&ctx).await?;
@@ -276,4 +278,61 @@ pub async fn add_rank_image_file(
     )?;
 
     Ok(out_file)
+}
+// ------------------------------------------------------------------------------
+
+#[derive(Deserialize, Serialize, Debug, Clone, Default)]
+pub struct JoinEvent {
+    roles: Vec<u64>,
+    messages: Vec<(String, u64)>,
+}
+
+impl wh_config::shared::Config for JoinEvent {
+    const KEY: &'static str = "points.event.join";
+}
+
+pub async fn handle_join_event(
+    ctx: Context,
+    guild_id: serenity::model::id::GuildId,
+    mut new_member: serenity::model::guild::Member,
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let lock = ctx.data.read().await;
+    let db = lock.get::<wh_database::shared::DatabaseKey>().unwrap();
+
+    let join_config =
+        wh_config::shared::read_config_or_default::<JoinEvent>(db, guild_id.0).await?;
+
+    let guild = guild_id.to_partial_guild(&ctx).await?;
+    let channels = guild.channels(&ctx).await?;
+    dbg!(&join_config);
+    for (message, channel) in &join_config.messages {
+        let mut message = message.replace("%SERVER.NAME%", &guild.name);
+
+        message = message.replace("%USER.NAME%", &new_member.user.name);
+        message = message.replace("%USER.MENTION%", &new_member.to_string());
+        message = message.replace(
+            "%USER.FULLNAME%",
+            &format!(
+                "{}#{}",
+                &new_member.user.name, &new_member.user.discriminator
+            ),
+        );
+        if let Some(c) = channels.get(&serenity::model::id::ChannelId(*channel)) {
+            c.send_message(&ctx, |f| f.content(message)).await?;
+        }
+    }
+
+    new_member
+        .add_roles(
+            &ctx,
+            &join_config
+                .roles
+                .clone()
+                .into_iter()
+                .map(serenity::model::id::RoleId)
+                .collect::<Vec<_>>(),
+        )
+        .await?;
+
+    Ok(())
 }

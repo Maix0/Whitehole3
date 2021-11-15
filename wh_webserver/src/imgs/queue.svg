@@ -1,0 +1,18 @@
+<svg width="800" height="855" viewBox="0 0 800 855" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <rect width="800" height="1100" fill="#C4C4C4" />
+    {queue_item_1}
+    {queue_item_2}
+    {queue_item_3}
+    {queue_item_4}
+    {queue_item_5}
+    {queue_item_6}
+    {queue_item_7}
+    {queue_item_8}
+    {queue_item_9}
+    {queue_item_10}
+
+    <text xmlns="http://www.w3.org/2000/svg" fill="black" xml:space="preserve" style="white-space: pre"
+        font-family="Ubuntu Mono" font-size="24" letter-spacing="0.045em">
+        <tspan x="666" y="1088.42">Page {page_number}/{total_page_number}</tspan>
+    </text>
+</svg>

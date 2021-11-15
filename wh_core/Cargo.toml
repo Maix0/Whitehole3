@@ -2,7 +2,7 @@
 name = "wh_core"
 version = "0.1.0"
 authors = ["Maix0 <maix522@gmail.com>"]
-edition = "2018"
+edition = "2021"
 
 
 
@@ -13,4 +13,3 @@ serenity= "0.10.5"
 [dependencies.fern]
 features = ["colored"]
 version = "0.6.0"
-

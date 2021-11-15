@@ -11,7 +11,6 @@ extern crate serenity;
 extern crate log;
 extern crate dotenv;
 extern crate fern;
-extern crate rocket;
 extern crate tokio;
 
 struct WhEventHandler;
@@ -88,7 +87,7 @@ fn logger_setup() -> Result<(), Box<dyn std::error::Error>> {
         .apply()?)
 }
 
-#[rocket::main]
+#[tokio::main]
 async fn main() {
     dotenv::dotenv().ok();
     logger_setup().expect("Error when setting up logger");
@@ -214,6 +213,7 @@ async fn bot_launch() -> Result<(), Box<dyn std::error::Error>> {
     for module in &modules {
         client = (module.register_builder)(client);
     }
+
     let client = client.await;
 
     if let Err(e) = client.as_ref() {

@@ -232,7 +232,7 @@ SELECT count(*) FROM deleted", wh_database::shared::Id(msg.author.id.0)as _, wh_
             let mut content = String::new();
 
             for (index, song) in song.iter().enumerate() {
-                let mut text = crate::shared::get_video_name(&song)
+                let mut text = crate::shared::get_video_name(song)
                     .await?
                     .unwrap_or_else(|| "Unknown".to_string());
                 if text.len() > 57 {

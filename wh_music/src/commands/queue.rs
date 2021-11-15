@@ -1,8 +1,5 @@
 use serenity::framework::standard::{macros::*, CommandResult};
-use serenity::{
-    builder::{CreateEmbed, CreateMessage},
-    model::channel::Message,
-};
+use serenity::model::channel::Message;
 use serenity::{client::Context, framework::standard::Args};
 
 #[command]
@@ -14,11 +11,11 @@ use serenity::{client::Context, framework::standard::Args};
 #[example("")]
 /// Get the bot's queue
 /// If a page number is appended to the command, it will show the page asked otherwise it will show the first page
+#[allow(clippy::eval_order_dependence)]
 pub async fn queue(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     let page_num = args.parse::<u16>().unwrap_or(0);
     let handler = songbird::get(ctx).await.unwrap();
     let call_mutex = handler.get(msg.guild_id.unwrap());
-    let guildname = msg.guild(ctx).await.unwrap().name;
     match call_mutex {
         Some(m) => {
             let lock = m.lock().await;
@@ -30,233 +27,158 @@ pub async fn queue(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
                 valid_queue = &[];
             }
             std::mem::drop(lock);
-            let len = (valid_queue.len() as f32 / 10f32).ceil() as u16;
-            let page_num = page_num.clamp(0, len);
-            if let Some((page, song)) = valid_queue.chunks(10).enumerate().nth(page_num as usize) {
-                let mut message = CreateMessage::default();
-                let mut embed = CreateEmbed::default();
-                embed.author(|f| f.name(format!("{}'s queue", guildname.as_str())));
-                let mut content = String::new();
-                let first_typemap = queue[0].typemap().read().await;
-                let first_metadata = first_typemap
+            let len = (valid_queue.len() as f32 / 10f32).ceil() as u8;
+            let page_num = page_num.clamp(0, len as u16);
+
+            let now_playing = match queue.get(0).map(|e| async move {
+                let now_playing_info = e.get_info().await;
+                if let Err(e) = now_playing_info {
+                    return Err(e);
+                }
+                let now_playing_info = now_playing_info.unwrap();
+                let now_playing_typemap = e.typemap().read().await;
+                let now_playing_metadata = now_playing_typemap
                     .get::<crate::shared::TrackMetadataKey>()
                     .unwrap();
-                let current_playing = format!(
-                    "[{title}]({url}) \nAdded by `{username} [{duration}]`",
-                    title = {
-                        let mut title = first_metadata.title.clone().unwrap_or_else(|| {
-                            first_metadata
-                                .url
-                                .clone()
-                                .unwrap_or_else(|| String::from("Unknown"))
-                        });
-                        if title.len() > 37 {
-                            title = title.chars().take(37).collect::<String>() + "...";
-                        }
-                        title
-                    },
-                    url = first_metadata
-                        .url
-                        .as_deref()
-                        .unwrap_or("https://youtube.com"),
-                    username = {
-                        let u = msg
-                            .guild(ctx)
-                            .await
-                            .unwrap()
-                            .member(ctx, first_metadata.added_by)
-                            .await?;
-                        if let Some(nick) = u.nick {
-                            format!(
-                                "{nick} ({username}#{disc})",
-                                nick = nick,
-                                username = u.user.name,
-                                disc = u.user.discriminator
-                            )
-                        } else {
-                            format!(
-                                "{username}#{disc}",
-                                username = u.user.name,
-                                disc = u.user.discriminator
-                            )
-                        }
-                    },
-                    duration = first_metadata
-                        .duration
-                        .map(|d| {
-                            chrono::Duration::from_std(d)
-                                .map(|d| {
-                                    let secs = d.num_seconds() % 60;
-                                    let min = d.num_minutes() % 60;
-                                    let hour = d.num_hours();
 
-                                    if hour == 0 {
-                                        format!("{m:02}:{s:02}", s = secs, m = min)
-                                    } else {
-                                        format!("{h}:{m:02}:{s:02}", s = secs, m = min, h = hour)
-                                    }
-                                })
-                                .unwrap()
-                        })
-                        .as_deref()
-                        .unwrap_or("Unknown"),
-                );
-
-                for (index, song) in song.iter().enumerate() {
-                    let typemap = song.typemap().read().await;
-                    let metadata = typemap.get::<crate::shared::TrackMetadataKey>().unwrap();
-                    use std::fmt::Write;
-                    write!(
-                        content,
-                        "`{index})`[{title}]({url})\n\tAdded by: `{username} [{duration}]`\n",
-                        title = {
-                            let mut title = metadata.title.clone().unwrap_or_else(|| {
-                                metadata
-                                    .url
-                                    .clone()
-                                    .unwrap_or_else(|| String::from("Unknown"))
-                            });
+                Ok(crate::shared::NowPlaying {
+                    time_in: now_playing_info.position,
+                    song: crate::shared::Song {
+                        duration: now_playing_metadata
+                            .duration
+                            .unwrap_or(std::time::Duration::ZERO),
+                        title: {
+                            let mut title =
+                                now_playing_metadata.title.clone().unwrap_or_else(|| {
+                                    now_playing_metadata
+                                        .url
+                                        .clone()
+                                        .unwrap_or_else(|| String::from("Unknown"))
+                                });
                             if title.len() > 47 {
                                 title = title.chars().take(57).collect::<String>() + "...";
                             }
                             title
                         },
-                        url = metadata.url.as_deref().unwrap_or("https://youtube.com"),
-                        username = {
-                            let u = msg
-                                .guild(ctx)
-                                .await
-                                .unwrap()
-                                .member(ctx, metadata.added_by)
-                                .await?;
-                            if let Some(nick) = u.nick {
-                                format!(
-                                    "{nick} ({username}#{disc})",
-                                    nick = nick,
-                                    username = u.user.name,
-                                    disc = u.user.discriminator
-                                )
-                            } else {
-                                format!(
-                                    "{username}#{disc}",
-                                    username = u.user.name,
-                                    disc = u.user.discriminator
-                                )
+                        added_by: now_playing_metadata.added_by.0,
+                        loop_num: match now_playing_info.loops {
+                            songbird::tracks::LoopState::Infinite => {
+                                crate::shared::LoopState::Infinite
+                            }
+                            songbird::tracks::LoopState::Finite(1 | 0) => {
+                                crate::shared::LoopState::None
+                            }
+                            songbird::tracks::LoopState::Finite(n) => {
+                                crate::shared::LoopState::Finite(n.min(100) as u8)
                             }
                         },
-                        duration = metadata
-                            .duration
-                            .map(|d| {
-                                chrono::Duration::from_std(d)
-                                    .map(|d| {
-                                        let secs = d.num_seconds() % 60;
-                                        let min = d.num_minutes() % 60;
-                                        let hour = d.num_hours();
-
-                                        if hour == 0 {
-                                            format!("{m:02}:{s:02}", s = secs, m = min)
-                                        } else {
-                                            format!(
-                                                "{h}:{m:02}:{s:02}",
-                                                s = secs,
-                                                m = min,
-                                                h = hour
-                                            )
-                                        }
-                                    })
-                                    .unwrap()
-                            })
-                            .as_deref()
-                            .unwrap_or("Unknown"),
-                        index = page_num as usize * 10 + index as usize + 1
-                    )?;
-                }
-                embed.field("Now Playing", current_playing, false);
-                embed.field("Queue", content, false);
-                embed.footer(|f| f.text(format!("Page {}/{}", page + 1, len)));
-                message.set_embed(embed);
-                msg.channel_id
-                    .send_message(&ctx.http, |c| {
-                        *c = message;
-                        c
-                    })
-                    .await?;
-            } else if let Some(i) = queue.get(0) {
-                let first_typemap = i.typemap().read().await;
-                let first_metadata = first_typemap
-                    .get::<crate::shared::TrackMetadataKey>()
-                    .unwrap();
-                let current_playing = format!(
-                    "[{title}]({url}) \nAdded by `{username} [{duration}]`",
-                    title = {
-                        let mut title = first_metadata.title.clone().unwrap_or_else(|| {
-                            first_metadata
-                                .url
-                                .clone()
-                                .unwrap_or_else(|| String::from("Unknown"))
-                        });
-                        if title.len() > 57 {
-                            title = title.chars().take(57).collect::<String>() + "...";
-                        }
-                        title
                     },
-                    url = first_metadata
-                        .url
-                        .as_deref()
-                        .unwrap_or("https://youtube.com"),
-                    username = {
-                        let u = msg
-                            .guild(ctx)
-                            .await
-                            .unwrap()
-                            .member(ctx, first_metadata.added_by)
-                            .await?;
-                        if let Some(nick) = u.nick {
-                            format!(
-                                "{nick} ({username}#{disc})",
-                                nick = nick,
-                                username = u.user.name,
-                                disc = u.user.discriminator
-                            )
-                        } else {
-                            format!(
-                                "{username}#{disc}",
-                                username = u.user.name,
-                                disc = u.user.discriminator
-                            )
-                        }
-                    },
-                    duration = first_metadata
-                        .duration
-                        .map(|d| {
-                            chrono::Duration::from_std(d)
-                                .map(|d| {
-                                    let secs = d.num_seconds() % 60;
-                                    let min = d.num_minutes() % 60;
-                                    let hour = d.num_hours();
+                })
+            }) {
+                Some(f) => Some(f.await?),
+                None => None,
+            };
+            let queue =
+                match valid_queue
+                    .chunks(10)
+                    .nth(page_num as usize)
+                    .map(|songs| async move {
+                        let mut out = arrayvec::ArrayVec::<_, 10>::new();
+                        for song in songs.iter() {
+                            let song_info = song.get_info().await;
+                            if let Err(e) = song_info {
+                                return Err(e);
+                            }
+                            let song_info = song_info.unwrap();
 
-                                    if hour == 0 {
-                                        format!("{m:02}:{s:02}", s = secs, m = min)
-                                    } else {
-                                        format!("{h}:{m:02}:{s:02}", s = secs, m = min, h = hour)
+                            let song_typemap = song.typemap().read().await;
+                            let song_metadata = song_typemap
+                                .get::<crate::shared::TrackMetadataKey>()
+                                .unwrap();
+                            out.push(crate::shared::Song {
+                                duration: song_metadata
+                                    .duration
+                                    .unwrap_or(std::time::Duration::ZERO),
+                                title: {
+                                    let mut title =
+                                        song_metadata.title.clone().unwrap_or_else(|| {
+                                            song_metadata
+                                                .url
+                                                .clone()
+                                                .unwrap_or_else(|| String::from("Unknown"))
+                                        });
+                                    if title.len() > 47 {
+                                        title = title.chars().take(57).collect::<String>() + "...";
                                     }
-                                })
-                                .unwrap()
-                        })
-                        .as_deref()
-                        .unwrap_or("Unknown"),
-                );
+                                    title
+                                },
+                                added_by: song_metadata.added_by.0,
+                                loop_num: match song_info.loops {
+                                    songbird::tracks::LoopState::Infinite => {
+                                        crate::shared::LoopState::Infinite
+                                    }
+                                    songbird::tracks::LoopState::Finite(1 | 0) => {
+                                        crate::shared::LoopState::None
+                                    }
+                                    songbird::tracks::LoopState::Finite(n) => {
+                                        crate::shared::LoopState::Finite(n.min(100) as u8)
+                                    }
+                                },
+                            })
+                        }
+                        Ok(out)
+                    }) {
+                    Some(f) => Some(f.await?),
+                    None => None,
+                }
+                .unwrap_or_default();
+            if let Some(now_playing) = now_playing {
+                let typing = msg.channel_id.start_typing(&ctx.http)?;
+                let client = reqwest::Client::new();
+                let request_builder = client.post(format!(
+                    "{base}/api/queue/now_playing",
+                    base = *crate::shared::BASE_URL
+                ));
+                let request_builder = request_builder.json(&now_playing);
 
-                let mut message = CreateMessage::default();
-                let mut embed = CreateEmbed::default();
-                embed.field("Now Playing", current_playing, false);
-                embed.author(|f| f.name(format!("{}'s queue", guildname.as_str())));
-                message.set_embed(embed);
-                msg.channel_id
-                    .send_message(&ctx.http, |c| {
-                        *c = message;
-                        c
-                    })
+                let request = request_builder.send().await?;
+
+                let now_playling_img = request.bytes().await?;
+                let queue_list_img;
+                typing.stop();
+                let mut queue_list_requested = false;
+                let _res = msg
+                    .channel_id
+                    .send_files(
+                        &ctx.http,
+                        [(&now_playling_img[..], "now_playing.png"), {
+                            if !queue.is_empty() {
+                                let request_builder = client.post(format!(
+                                    "{base}/api/queue/list",
+                                    base = *crate::shared::BASE_URL,
+                                ));
+                                let request_builder =
+                                    request_builder.json(&crate::shared::QueueRequest {
+                                        page_number: page_num as u8,
+                                        total_page_num: len,
+                                        queue,
+                                        guildid: msg.guild_id.unwrap().0,
+                                        callerid: msg.author.id.0,
+                                    });
+                                let request = request_builder.send().await?;
+
+                                queue_list_img = request.bytes().await?;
+
+                                queue_list_requested = true;
+                                (&queue_list_img[..], "rank.png")
+                            } else {
+                                (&[], "error.png")
+                            }
+                        }]
+                        .into_iter()
+                        .take(if queue_list_requested { 2 } else { 1 }),
+                        |m| m,
+                    )
                     .await?;
             } else {
                 reply_message!(ctx, msg, fluent!(MUSIC_empty_queue));

@@ -15,7 +15,7 @@ macro_rules! define_error {
         }
 
         impl Error {
-            fn description(self, description: Option<String>) -> RspErr {
+            fn description(self, _description: Option<String>) -> RspErr {
                 match self {
                 $(
                     Self::$variant => {

@@ -29,7 +29,7 @@ fn register_intent(
     intent: serenity::client::bridge::gateway::GatewayIntents,
 ) -> serenity::client::bridge::gateway::GatewayIntents {
     use serenity::client::bridge::gateway::GatewayIntents as I;
-    intent | I::GUILD_MESSAGES | I::GUILDS | I::GUILD_MESSAGE_REACTIONS
+    intent | I::GUILD_MESSAGES | I::GUILDS | I::GUILD_MEMBERS
 }
 
 fn register_init() {

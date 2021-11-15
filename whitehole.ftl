@@ -20,6 +20,9 @@ MUSIC_no_playlists={cross} This guild doesn't have any playlist
 MUSIC_empty_queue={cross} The guild's queue is empty
 MUSIC_remove_item=Removed item at position {"{}"}
 MUSIC_error_resuming={cross} Error when resuming!
+MUSIC_loop_disable=Looping has been disabled for the current song
+MUSIC_loop_enable_inf=Looping has been enabled for the current song
+MUSIC_loop_enable_num=Looping has been enabled for the current song ({"{}"} times)
 
 
 MUSIC_ARG_invalid_number={cross} You need to provide a valid number!
