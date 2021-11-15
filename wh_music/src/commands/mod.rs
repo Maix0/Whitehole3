@@ -1,6 +1,6 @@
 add_commands!(
     Music,
-    (clear, join, pause, play, queue, resume, skip, playlist, loop_cmd, record),
+    (clear, join, pause, play, queue, resume, skip, playlist, loop_cmd),
     ()
 );
 
